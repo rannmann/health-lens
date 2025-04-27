@@ -30,10 +30,10 @@ A view into your health data across multiple domains, all hosted locally.
 # 3. High‑Level Architecture
 
 ```
-┌─────────────────┐     HTTPS     ┌──────────────┐     SQL      ┌───────────┐
+┌─────────────────┐     HTTPS    ┌──────────────┐     SQL      ┌───────────┐
 │ Vue Frontend    │  ↔  /api/*   │ Express API  │  ↔  queries  │ SQLite DB │
 │ (localhost:8080)│              │ (localhost:3000)            │ file      │
-└─────────────────┘              └──────────────┘             └───────────┘
+└─────────────────┘              └──────────────┘              └───────────┘
         ▲                                                         ▲
         │                                                         │
         └─── Webhooks / Cron jobs for scheduled data pulls ────────┘
