@@ -19,24 +19,25 @@ db.pragma('journal_mode = WAL');
 db.exec(`
     -- User management
     CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        id TEXT PRIMARY KEY,  -- Our local user ID
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_login TEXT
     );
 
-    -- Fitbit authentication
-    CREATE TABLE IF NOT EXISTS fitbit_tokens (
-        user_id TEXT PRIMARY KEY,
+    -- Fitbit connections (one user can have one Fitbit connection)
+    CREATE TABLE IF NOT EXISTS fitbit_connections (
+        user_id TEXT PRIMARY KEY,  -- References our local user ID
+        fitbit_user_id TEXT NOT NULL,  -- The Fitbit-provided user ID
         access_token TEXT NOT NULL,
         refresh_token TEXT NOT NULL,
         expires_at TEXT NOT NULL,
         scope TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
-    -- Daily health metrics
+    -- Daily health metrics (now references our local user ID)
     CREATE TABLE IF NOT EXISTS daily_summary (
         user_id TEXT NOT NULL,
         date TEXT NOT NULL,
@@ -128,13 +129,5 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_medication_event_user_timestamp ON medication_event(user_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_symptom_event_user_timestamp ON symptom_event(user_id, timestamp);
 `);
-
-// Create default user if it doesn't exist
-try {
-    const stmt = db.prepare('INSERT OR IGNORE INTO users (id, created_at) VALUES (?, CURRENT_TIMESTAMP)');
-    stmt.run('default_user');
-} catch (error) {
-    console.error('Error creating default user:', error);
-}
 
 export default db; 

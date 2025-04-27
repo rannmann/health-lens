@@ -26,16 +26,26 @@
             </ul>
             <div v-else>
               <p>Last synced: {{ formatDate(fitbitLastSync) }}</p>
-              <button @click="syncFitbit" :disabled="isSyncing">
+              <button @click="syncFitbit" :disabled="isSyncing || isConnecting">
                 {{ isSyncing ? 'Syncing...' : 'Sync Now' }}
               </button>
             </div>
           </div>
           <div class="settings-actions">
-            <button v-if="!fitbitConnected" @click="connectFitbit" class="connect-button">
-              Connect Fitbit
+            <button 
+              v-if="!fitbitConnected" 
+              @click="connectFitbit" 
+              :disabled="isConnecting"
+              class="connect-button"
+            >
+              {{ isConnecting ? 'Connecting...' : 'Connect Fitbit' }}
             </button>
-            <button v-else @click="disconnectFitbit" class="disconnect-button">
+            <button 
+              v-else 
+              @click="disconnectFitbit" 
+              :disabled="isConnecting"
+              class="disconnect-button"
+            >
               Disconnect
             </button>
             <a v-if="!fitbitConnected" 
@@ -180,6 +190,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { format } from 'date-fns';
+import axios from 'axios';
 
 const fitbitConnected = ref(false);
 const fitbitLastSync = ref('');
@@ -191,6 +202,7 @@ const weatherApiKey = ref('');
 const weatherConnected = ref(false);
 const isSyncing = ref(false);
 const isSaving = ref(false);
+const isConnecting = ref(false);
 
 function formatDate(dateString: string) {
   if (!dateString) return 'Never';
@@ -198,24 +210,92 @@ function formatDate(dateString: string) {
 }
 
 async function connectFitbit() {
-  // TODO: Implement Fitbit OAuth flow
-  fitbitConnected.value = true;
+  window.location.href = '/api/fitbit/auth';
 }
 
 async function disconnectFitbit() {
-  // TODO: Implement Fitbit disconnect
-  fitbitConnected.value = false;
+  try {
+    const userId = localStorage.getItem('userId');
+    await axios.post('/api/fitbit/disconnect', { userId });
+    fitbitConnected.value = false;
+    fitbitLastSync.value = '';
+    localStorage.removeItem('userId');
+  } catch (error) {
+    console.error('Failed to disconnect Fitbit:', error);
+    alert('Failed to disconnect Fitbit. Please try again.');
+  }
 }
 
 async function syncFitbit() {
   isSyncing.value = true;
   try {
-    // TODO: Implement Fitbit sync
+    // Get last 30 days of data by default
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const userId = localStorage.getItem('userId');
+    await axios.get(`/api/fitbit/sync/${userId}`, {
+      params: { startDate, endDate }
+    });
+    
     fitbitLastSync.value = new Date().toISOString();
+  } catch (error) {
+    console.error('Failed to sync Fitbit data:', error);
+    alert('Failed to sync Fitbit data. Please try again.');
   } finally {
     isSyncing.value = false;
   }
 }
+
+// Check Fitbit connection status and handle OAuth callback
+onMounted(async () => {
+  try {
+    // Check if we have a userId stored
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      // Check if we have valid tokens for this user
+      const response = await axios.get(`/api/fitbit/status/${userId}`);
+      fitbitConnected.value = response.data.connected;
+      if (response.data.lastSync) {
+        fitbitLastSync.value = response.data.lastSync;
+      }
+    }
+    
+    // Check URL for OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const error = urlParams.get('error');
+    
+    if (code) {
+      isConnecting.value = true;
+      try {
+        // Exchange code for tokens
+        const response = await axios.get('/api/fitbit/callback', { params: { code } });
+        if (response.data.success) {
+          fitbitConnected.value = true;
+          // Store our local user ID, not the Fitbit user ID
+          localStorage.setItem('userId', response.data.userId);
+          
+          // Start initial sync
+          await syncFitbit();
+          
+          // Clean up URL
+          window.history.replaceState({}, document.title, '/settings');
+        }
+      } catch (error) {
+        console.error('Failed to complete Fitbit connection:', error);
+        alert('Failed to connect to Fitbit. Please try again.');
+      } finally {
+        isConnecting.value = false;
+      }
+    } else if (error) {
+      alert('Failed to connect to Fitbit. Please try again.');
+      window.history.replaceState({}, document.title, '/settings');
+    }
+  } catch (error) {
+    console.error('Failed to check Fitbit status:', error);
+  }
+});
 
 async function saveAwairSettings() {
   isSaving.value = true;
@@ -264,10 +344,6 @@ function convertToCSV(data: any) {
   // TODO: Implement CSV conversion
   return '';
 }
-
-onMounted(() => {
-  // TODO: Load saved settings
-});
 </script>
 
 <style scoped>

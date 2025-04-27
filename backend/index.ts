@@ -1,11 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import { fitbitRouter } from './routes/fitbit';
 import { medicationsRouter } from './routes/medications';
 import { symptomsRouter } from './routes/symptoms';
 import { awairRouter } from './routes/awair';
 import { weatherRouter } from './routes/weather';
 import notesRouter from './routes/notes';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;

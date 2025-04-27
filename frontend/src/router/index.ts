@@ -32,6 +32,16 @@ const router = createRouter({
       path: '/notes',
       name: 'notes',
       component: NotesView
+    },
+    {
+      path: '/auth/fitbit/callback',
+      redirect: to => {
+        // Redirect to settings with the auth code
+        return {
+          path: '/settings',
+          query: { code: to.query.code, state: to.query.state }
+        };
+      }
     }
   ]
 });

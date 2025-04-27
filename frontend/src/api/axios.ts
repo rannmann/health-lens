@@ -2,19 +2,26 @@ import axios from 'axios';
 
 // Configure axios with default headers
 const api = axios.create({
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add default user ID to all requests
-api.interceptors.request.use((config) => {
-  // Add default user ID to all requests
-  if (config.params) {
-    config.params.userId = 'default_user';
-  } else {
-    config.params = { userId: 'default_user' };
+// Request interceptor
+api.interceptors.request.use(config => {
+  // Get the actual user ID from localStorage
+  const userId = localStorage.getItem('userId');
+  
+  // Only add userId to params if it exists
+  if (userId) {
+    if (!config.params) {
+      config.params = { userId };
+    } else if (!config.params.userId) {
+      config.params.userId = userId;
+    }
   }
+  
   return config;
 });
 
