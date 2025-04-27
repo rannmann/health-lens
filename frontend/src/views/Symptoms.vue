@@ -188,7 +188,7 @@ const filteredSymptoms = computed(() => {
 
 const fetchSymptoms = async () => {
   try {
-    const response = await fetch('/api/symptoms')
+    const response = await fetch('/api/symptom')
     if (response.ok) {
       symptoms.value = await response.json()
     }
@@ -199,7 +199,7 @@ const fetchSymptoms = async () => {
 
 const addSymptom = async () => {
   try {
-    const response = await fetch('/api/symptoms', {
+    const response = await fetch('/api/symptom', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -230,7 +230,7 @@ const editSymptom = (symptom: Symptom) => {
 const deleteSymptom = async (id: string) => {
   if (confirm('Are you sure you want to delete this symptom entry?')) {
     try {
-      const response = await fetch(`/api/symptoms/${id}`, {
+      const response = await fetch(`/api/symptom/${id}`, {
         method: 'DELETE'
       })
       

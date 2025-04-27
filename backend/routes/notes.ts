@@ -1,19 +1,17 @@
-import express from 'express';
-import { db } from '../config/database';
-import { authenticateToken } from '../middleware/auth';
+import express, { Request, Response } from 'express';
+import db from '../config/database';
 
 const router = express.Router();
 
 // Add a new note
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
     try {
         const { timestamp, title, content } = req.body;
-        const userId = req.user.id;
+        const userId = 'default_user';
 
-        await db.run(
-            'INSERT INTO general_note (user_id, timestamp, title, content) VALUES (?, ?, ?, ?)',
-            [userId, timestamp, title, content]
-        );
+        db.prepare(
+            'INSERT INTO general_note (user_id, timestamp, title, content) VALUES (?, ?, ?, ?)'
+        ).run(userId, timestamp, title, content);
 
         res.status(201).json({ message: 'Note added successfully' });
     } catch (error) {
@@ -23,13 +21,12 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Get all notes for a user
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
-        const userId = req.user.id;
-        const notes = await db.all(
-            'SELECT * FROM general_note WHERE user_id = ? ORDER BY timestamp DESC',
-            [userId]
-        );
+        const userId = 'default_user';
+        const notes = db.prepare(
+            'SELECT * FROM general_note WHERE user_id = ? ORDER BY timestamp DESC'
+        ).all(userId);
         res.json(notes);
     } catch (error) {
         console.error('Error fetching notes:', error);
@@ -38,16 +35,15 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Update a note
-router.put('/:timestamp', authenticateToken, async (req, res) => {
+router.put('/:timestamp', async (req: Request, res: Response) => {
     try {
         const { title, content } = req.body;
-        const userId = req.user.id;
+        const userId = 'default_user';
         const timestamp = req.params.timestamp;
 
-        await db.run(
-            'UPDATE general_note SET title = ?, content = ? WHERE user_id = ? AND timestamp = ?',
-            [title, content, userId, timestamp]
-        );
+        db.prepare(
+            'UPDATE general_note SET title = ?, content = ? WHERE user_id = ? AND timestamp = ?'
+        ).run(title, content, userId, timestamp);
 
         res.json({ message: 'Note updated successfully' });
     } catch (error) {
@@ -57,15 +53,14 @@ router.put('/:timestamp', authenticateToken, async (req, res) => {
 });
 
 // Delete a note
-router.delete('/:timestamp', authenticateToken, async (req, res) => {
+router.delete('/:timestamp', async (req: Request, res: Response) => {
     try {
-        const userId = req.user.id;
+        const userId = 'default_user';
         const timestamp = req.params.timestamp;
 
-        await db.run(
-            'DELETE FROM general_note WHERE user_id = ? AND timestamp = ?',
-            [userId, timestamp]
-        );
+        db.prepare(
+            'DELETE FROM general_note WHERE user_id = ? AND timestamp = ?'
+        ).run(userId, timestamp);
 
         res.json({ message: 'Note deleted successfully' });
     } catch (error) {

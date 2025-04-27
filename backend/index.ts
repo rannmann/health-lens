@@ -3,18 +3,37 @@ import cors from 'cors';
 import { fitbitRouter } from './routes/fitbit';
 import { medicationsRouter } from './routes/medications';
 import { symptomsRouter } from './routes/symptoms';
+import { awairRouter } from './routes/awair';
+import { weatherRouter } from './routes/weather';
+import notesRouter from './routes/notes';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Configure CORS for development
+app.use(cors({
+  origin: 'http://localhost:8080', // Frontend URL
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // API routes
 app.use('/api/fitbit', fitbitRouter);
 app.use('/api/medications', medicationsRouter);
 app.use('/api/symptoms', symptomsRouter);
+app.use('/api/awair', awairRouter);
+app.use('/api/weather', weatherRouter);
+app.use('/api/notes', notesRouter);
+
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
+});
 
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+  console.log(`Backend server running at http://localhost:${port}`);
 }); 
