@@ -1,31 +1,9 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
+import DefaultLayout from './layouts/DefaultLayout.vue';
 </script>
 
 <template>
-  <div class="app">
-    <header class="header">
-      <h1>HealthLens</h1>
-      <nav>
-        <router-link to="/">Dashboard</router-link>
-        <router-link to="/medications">Medications</router-link>
-        <router-link to="/symptoms">Symptoms</router-link>
-        <router-link to="/settings">Settings</router-link>
-      </nav>
-    </header>
-
-    <main class="main">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </main>
-
-    <footer class="footer">
-      <p>&copy; 2024 HealthLens. All data is stored locally.</p>
-    </footer>
-  </div>
+  <DefaultLayout />
 </template>
 
 <style>

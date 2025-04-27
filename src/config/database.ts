@@ -111,6 +111,16 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    -- General notes
+    CREATE TABLE IF NOT EXISTS general_note (
+        user_id TEXT,
+        timestamp TEXT,
+        title TEXT,
+        content TEXT,
+        PRIMARY KEY(user_id, timestamp),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     -- Create indexes for better query performance
     CREATE INDEX IF NOT EXISTS idx_daily_summary_user_date ON daily_summary(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_awair_reading_user_timestamp ON awair_reading(user_id, timestamp);

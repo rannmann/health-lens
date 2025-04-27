@@ -3,9 +3,10 @@ import Dashboard from '../views/Dashboard.vue';
 import Medications from '../views/Medications.vue';
 import Symptoms from '../views/Symptoms.vue';
 import Settings from '../views/Settings.vue';
+import NotesView from '../views/NotesView.vue';
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
@@ -26,6 +27,11 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: Settings
+    },
+    {
+      path: '/notes',
+      name: 'notes',
+      component: NotesView
     }
   ]
 });
