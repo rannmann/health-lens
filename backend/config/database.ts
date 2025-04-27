@@ -129,4 +129,12 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_symptom_event_user_timestamp ON symptom_event(user_id, timestamp);
 `);
 
+// Create default user if it doesn't exist
+try {
+    const stmt = db.prepare('INSERT OR IGNORE INTO users (id, created_at) VALUES (?, CURRENT_TIMESTAMP)');
+    stmt.run('default_user');
+} catch (error) {
+    console.error('Error creating default user:', error);
+}
+
 export default db; 
