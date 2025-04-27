@@ -1,35 +1,63 @@
 <template>
-  <div class="notes-container">
+  <div class="notes">
     <h1>Notes</h1>
     
     <!-- Add New Note Form -->
-    <div class="add-note-form">
-      <input 
-        v-model="newNote.title" 
-        type="text" 
-        placeholder="Note title"
-        class="note-input"
-      >
-      <textarea 
-        v-model="newNote.content" 
-        placeholder="Write your note here..."
-        class="note-textarea"
-      ></textarea>
-      <button @click="addNote" class="add-button">Add Note</button>
+    <div class="note-form">
+      <h2>Add Note</h2>
+      <form @submit.prevent="addNote">
+        <div class="form-group">
+          <label for="title">Title</label>
+          <input 
+            id="title"
+            v-model="newNote.title" 
+            type="text" 
+            required
+          >
+        </div>
+        
+        <div class="form-group">
+          <label for="timestamp">Date & Time</label>
+          <input
+            id="timestamp"
+            v-model="newNote.timestamp"
+            type="datetime-local"
+            required
+          >
+        </div>
+        
+        <div class="form-group">
+          <label for="content">Content</label>
+          <textarea 
+            id="content"
+            v-model="newNote.content" 
+            rows="3"
+            required
+          ></textarea>
+        </div>
+        
+        <button type="submit">Add Note</button>
+      </form>
     </div>
 
     <!-- Notes List -->
     <div class="notes-list">
-      <div v-for="note in notes" :key="note.timestamp" class="note-card">
-        <div class="note-header">
-          <h3>{{ note.title }}</h3>
-          <div class="note-actions">
-            <button @click="editNote(note)" class="edit-button">Edit</button>
-            <button @click="deleteNote(note.timestamp)" class="delete-button">Delete</button>
+      <h2>Notes History</h2>
+      <div v-if="notes.length === 0" class="empty-state">
+        No notes added yet.
+      </div>
+      <div v-else class="note-cards">
+        <div v-for="note in notes" :key="note.timestamp" class="note-card">
+          <div class="note-header">
+            <h3>{{ note.title }}</h3>
+            <div class="note-actions">
+              <button @click="editNote(note)" class="edit-button">Edit</button>
+              <button @click="deleteNote(note.timestamp)" class="delete-button">Delete</button>
+            </div>
           </div>
+          <p class="note-content">{{ note.content }}</p>
+          <p class="note-timestamp">{{ formatDate(note.timestamp) }}</p>
         </div>
-        <p class="note-content">{{ note.content }}</p>
-        <p class="note-timestamp">{{ formatDate(note.timestamp) }}</p>
       </div>
     </div>
 
@@ -37,21 +65,42 @@
     <div v-if="editingNote" class="modal">
       <div class="modal-content">
         <h2>Edit Note</h2>
-        <input 
-          v-model="editingNote.title" 
-          type="text" 
-          placeholder="Note title"
-          class="note-input"
-        >
-        <textarea 
-          v-model="editingNote.content" 
-          placeholder="Write your note here..."
-          class="note-textarea"
-        ></textarea>
-        <div class="modal-actions">
-          <button @click="saveEdit" class="save-button">Save</button>
-          <button @click="cancelEdit" class="cancel-button">Cancel</button>
-        </div>
+        <form @submit.prevent="saveEdit">
+          <div class="form-group">
+            <label for="edit-title">Title</label>
+            <input 
+              id="edit-title"
+              v-model="editingNote.title" 
+              type="text" 
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-timestamp">Date & Time</label>
+            <input
+              id="edit-timestamp"
+              v-model="editingNote.timestamp"
+              type="datetime-local"
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-content">Content</label>
+            <textarea 
+              id="edit-content"
+              v-model="editingNote.content" 
+              rows="3"
+              required
+            ></textarea>
+          </div>
+          
+          <div class="modal-actions">
+            <button type="submit" class="save-button">Save</button>
+            <button type="button" @click="cancelEdit" class="cancel-button">Cancel</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -59,7 +108,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../api/axios';
+import { format } from 'date-fns';
 
 interface Note {
   timestamp: string;
@@ -68,12 +118,16 @@ interface Note {
 }
 
 const notes = ref<Note[]>([]);
-const newNote = ref({ title: '', content: '' });
+const newNote = ref({
+  title: '',
+  content: '',
+  timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+});
 const editingNote = ref<Note | null>(null);
 
 const fetchNotes = async () => {
   try {
-    const response = await axios.get('/api/notes');
+    const response = await api.get('/api/notes');
     notes.value = response.data;
   } catch (error) {
     console.error('Error fetching notes:', error);
@@ -84,11 +138,12 @@ const addNote = async () => {
   if (!newNote.value.title || !newNote.value.content) return;
   
   try {
-    await axios.post('/api/notes', {
-      ...newNote.value,
-      timestamp: new Date().toISOString()
-    });
-    newNote.value = { title: '', content: '' };
+    await api.post('/api/notes', newNote.value);
+    newNote.value = {
+      title: '',
+      content: '',
+      timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+    };
     await fetchNotes();
   } catch (error) {
     console.error('Error adding note:', error);
@@ -103,7 +158,7 @@ const saveEdit = async () => {
   if (!editingNote.value) return;
   
   try {
-    await axios.put(`/api/notes/${editingNote.value.timestamp}`, editingNote.value);
+    await api.put(`/api/notes/${editingNote.value.timestamp}`, editingNote.value);
     editingNote.value = null;
     await fetchNotes();
   } catch (error) {
@@ -119,7 +174,7 @@ const deleteNote = async (timestamp: string) => {
   if (!confirm('Are you sure you want to delete this note?')) return;
   
   try {
-    await axios.delete(`/api/notes/${timestamp}`);
+    await api.delete(`/api/notes/${timestamp}`);
     await fetchNotes();
   } catch (error) {
     console.error('Error deleting note:', error);
@@ -127,7 +182,7 @@ const deleteNote = async (timestamp: string) => {
 };
 
 const formatDate = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString();
+  return format(new Date(timestamp), 'MMM d, yyyy h:mm a');
 };
 
 onMounted(() => {
@@ -136,89 +191,113 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.notes-container {
-  max-width: 800px;
+.notes {
+  padding: 2rem;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
 }
 
-.add-note-form {
-  margin-bottom: 30px;
-  padding: 20px;
-  background: #f5f5f5;
+.note-form {
+  background: white;
+  padding: 2rem;
   border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
 }
 
-.note-input {
+.form-group {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+input,
+textarea {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 1rem;
 }
 
-.note-textarea {
-  width: 100%;
-  height: 100px;
-  padding: 10px;
-  margin-bottom: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  resize: vertical;
-}
-
-.add-button {
+button {
   background: #4CAF50;
   color: white;
-  padding: 10px 20px;
   border: none;
+  padding: 0.5rem 1rem;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 1rem;
+}
+
+button:hover {
+  background: #45a049;
 }
 
 .notes-list {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.note-cards {
   display: grid;
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
 }
 
 .note-card {
-  background: white;
-  padding: 20px;
+  border: 1px solid #ddd;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 1rem;
 }
 
 .note-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 1rem;
 }
 
 .note-actions {
   display: flex;
-  gap: 10px;
+  gap: 0.5rem;
 }
 
-.edit-button, .delete-button {
-  padding: 5px 10px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.note-actions button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
 }
 
 .edit-button {
   background: #2196F3;
-  color: white;
+}
+
+.edit-button:hover {
+  background: #1976D2;
 }
 
 .delete-button {
   background: #f44336;
-  color: white;
+}
+
+.delete-button:hover {
+  background: #d32f2f;
 }
 
 .note-content {
-  margin: 10px 0;
+  margin: 1rem 0;
   white-space: pre-wrap;
 }
 
@@ -241,7 +320,7 @@ onMounted(() => {
 
 .modal-content {
   background: white;
-  padding: 20px;
+  padding: 2rem;
   border-radius: 8px;
   width: 90%;
   max-width: 600px;
@@ -250,24 +329,23 @@ onMounted(() => {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .save-button {
   background: #4CAF50;
-  color: white;
+}
+
+.save-button:hover {
+  background: #45a049;
 }
 
 .cancel-button {
   background: #f44336;
-  color: white;
+}
+
+.cancel-button:hover {
+  background: #d32f2f;
 }
 </style> 
