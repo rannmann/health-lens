@@ -12,11 +12,284 @@ interface FitbitToken {
     scope: string;
 }
 
+// Add these interfaces after the FitbitToken interface
+interface EndpointConfig {
+    path: string;
+    maxDays: number;
+    required: boolean;
+}
+
+interface SyncProgress {
+    endpoint: string;
+    lastSyncedDate: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'failed';
+    error?: string;
+}
+
+// Add these interfaces after the existing interfaces
+interface RateLimitInfo {
+    limit: number;
+    remaining: number;
+    resetTime: Date;
+}
+
+interface UserRateLimit {
+    userId: string;
+    rateLimitInfo: RateLimitInfo;
+    lastUpdated: Date;
+}
+
+// Add this rate limit tracking before the ENDPOINT_CONFIGS
+const userRateLimits = new Map<string, UserRateLimit>();
+
+// Add these endpoint configurations before the router definitions
+const ENDPOINT_CONFIGS: Record<string, EndpointConfig> = {
+    heart: {
+        path: 'activities/heart',
+        maxDays: 365,  // 1 year
+        required: true
+    },
+    sleep: {
+        path: 'sleep',
+        maxDays: 100,
+        required: true
+    },
+    steps: {
+        path: 'activities/steps',
+        maxDays: 1095,  // 3 years
+        required: true
+    },
+    hrv: {
+        path: 'hrv',
+        maxDays: 30,
+        required: true
+    },
+    azm: {
+        path: 'activities/active-zone-minutes',
+        maxDays: 1095,  // 3 years
+        required: true
+    },
+    spo2: {
+        path: 'spo2',
+        maxDays: 1095,  // Unlimited, but we'll use 3 years for consistency
+        required: false
+    },
+    temperature: {
+        path: 'temp/skin',
+        maxDays: 30,
+        required: false
+    },
+    breathing: {
+        path: 'br',
+        maxDays: 30,
+        required: false
+    }
+};
+
+// Add these interfaces for data processing
+interface DailySummary {
+    user_id: string;
+    date: string;
+    resting_hr?: number;
+    steps?: number;
+    hrv_rmssd?: number;
+    spo2_avg?: number;
+    breathing_rate?: number;
+    skin_temp_delta?: number;
+    total_sleep?: number;
+    deep_sleep?: number;
+    light_sleep?: number;
+    rem_sleep?: number;
+    wake_minutes?: number;
+    azm_total?: number;
+    azm_fatburn?: number;
+    azm_cardio?: number;
+    azm_peak?: number;
+}
+
+// Helper function to process and store daily summary data
+function upsertDailySummary(summary: DailySummary) {
+    const fields = Object.keys(summary).filter(k => summary[k as keyof DailySummary] !== undefined);
+    const placeholders = fields.map(() => '?').join(', ');
+    const updateClauses = fields.map(f => `${f} = excluded.${f}`).join(', ');
+    
+    const sql = `
+        INSERT INTO daily_summary (${fields.join(', ')})
+        VALUES (${placeholders})
+        ON CONFLICT(user_id, date) DO UPDATE SET
+        ${updateClauses}
+    `;
+    
+    db.prepare(sql).run(...fields.map(f => summary[f as keyof DailySummary]));
+}
+
+// Helper to process data by endpoint
+async function processEndpointData(
+    userId: string,
+    endpointKey: string,
+    data: any,
+    startDate: string,
+    endDate: string
+) {
+    switch (endpointKey) {
+        case 'heart':
+            // Heart data comes as array of daily values
+            if (data.activities?.heart) {
+                for (const day of data.activities.heart) {
+                    if (day.value?.restingHeartRate) {
+                        upsertDailySummary({
+                            user_id: userId,
+                            date: day.dateTime,
+                            resting_hr: day.value.restingHeartRate
+                        });
+                    }
+                }
+            }
+            break;
+            
+        case 'sleep':
+            // Sleep data comes as array of sleep records
+            if (data.sleep) {
+                // Group sleep by date since there can be multiple sleep records per day
+                const sleepByDate = new Map<string, {
+                    total: number,
+                    wake: number,
+                    deep: number,
+                    light: number,
+                    rem: number
+                }>();
+
+                for (const sleep of data.sleep) {
+                    const date = sleep.dateOfSleep;
+                    const current = sleepByDate.get(date) || {
+                        total: 0,
+                        wake: 0,
+                        deep: 0,
+                        light: 0,
+                        rem: 0
+                    };
+
+                    current.total += sleep.minutesAsleep || 0;
+                    current.wake += sleep.minutesAwake || 0;
+
+                    if (sleep.levels?.summary) {
+                        current.deep += sleep.levels.summary.deep?.minutes || 0;
+                        current.light += sleep.levels.summary.light?.minutes || 0;
+                        current.rem += sleep.levels.summary.rem?.minutes || 0;
+                    }
+
+                    sleepByDate.set(date, current);
+                }
+
+                // Insert aggregated sleep data for each date
+                for (const [date, summary] of sleepByDate.entries()) {
+                    upsertDailySummary({
+                        user_id: userId,
+                        date,
+                        total_sleep: summary.total,
+                        wake_minutes: summary.wake,
+                        deep_sleep: summary.deep,
+                        light_sleep: summary.light,
+                        rem_sleep: summary.rem
+                    });
+                }
+            }
+            break;
+            
+        case 'hrv':
+            // HRV data comes as array of daily values
+            if (data.hrv) {
+                for (const day of data.hrv) {
+                    if (day.value?.dailyRmssd) {
+                        upsertDailySummary({
+                            user_id: userId,
+                            date: day.dateTime,
+                            hrv_rmssd: day.value.dailyRmssd
+                        });
+                    }
+                }
+            }
+            break;
+            
+        case 'steps':
+            // Steps data comes as array of daily values
+            if (data['activities-steps']) {
+                for (const day of data['activities-steps']) {
+                    upsertDailySummary({
+                        user_id: userId,
+                        date: day.dateTime,
+                        steps: parseInt(day.value)
+                    });
+                }
+            }
+            break;
+            
+        case 'azm':
+            // Active Zone Minutes data comes as array of daily values
+            if (data['activities-active-zone-minutes']) {
+                for (const day of data['activities-active-zone-minutes']) {
+                    upsertDailySummary({
+                        user_id: userId,
+                        date: day.dateTime,
+                        azm_total: day.value.activeZoneMinutes || 0,
+                        azm_fatburn: day.value.fatBurnActiveZoneMinutes || 0,
+                        azm_cardio: day.value.cardioActiveZoneMinutes || 0,
+                        azm_peak: day.value.peakActiveZoneMinutes || 0
+                    });
+                }
+            }
+            break;
+            
+        case 'spo2':
+            // SpO2 data comes as daily values
+            if (data.value?.avg) {
+                for (const [date, value] of Object.entries(data.value.avg)) {
+                    upsertDailySummary({
+                        user_id: userId,
+                        date,
+                        spo2_avg: value as number
+                    });
+                }
+            }
+            break;
+            
+        case 'breathing':
+            // Breathing rate comes as array of daily values
+            if (data.br) {
+                for (const day of data.br) {
+                    if (day.value?.breathingRate) {
+                        upsertDailySummary({
+                            user_id: userId,
+                            date: day.dateTime,
+                            breathing_rate: day.value.breathingRate
+                        });
+                    }
+                }
+            }
+            break;
+            
+        case 'temperature':
+            // Temperature data comes as array of daily values
+            if (data.temperature) {
+                for (const day of data.temperature) {
+                    if (day.value?.nightlyRelative) {
+                        upsertDailySummary({
+                            user_id: userId,
+                            date: day.dateTime,
+                            skin_temp_delta: day.value.nightlyRelative
+                        });
+                    }
+                }
+            }
+            break;
+    }
+}
+
 // Helper function to refresh access token
 async function refreshAccessToken(userId: string): Promise<FitbitToken> {
     const token = db.prepare(`
         SELECT refresh_token FROM fitbit_connections 
-        WHERE user_id = ? AND expires_at > datetime('now')
+        WHERE user_id = ?
     `).get(userId) as { refresh_token: string };
 
     if (!token) {
@@ -73,8 +346,6 @@ async function getValidAccessToken(userId: string): Promise<{ access_token: stri
         SELECT access_token, expires_at, fitbit_user_id FROM fitbit_connections 
         WHERE user_id = ?
     `).get(userId) as { access_token: string; expires_at: string; fitbit_user_id: string };
-    
-    console.log('Fitbit connection found:', connection);
 
     if (!connection) {
         throw new Error('No Fitbit connection found');
@@ -207,142 +478,297 @@ router.get('/callback', async (req: Request, res: Response) => {
     }
 });
 
-// Data sync endpoints
-router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
-    const { startDate, endDate } = req.query;
+// Replace the existing fetchWithRateLimit with this enhanced version
+async function fetchWithRateLimit(url: string, headers: any, userId: string, retryCount = 0): Promise<any> {
+    // Get current rate limit info for user
+    const now = new Date();
+    const userLimit = userRateLimits.get(userId);
+    
+    // If we have rate limit info and it's not reset time yet
+    if (userLimit && userLimit.rateLimitInfo.remaining <= 0) {
+        const waitTime = userLimit.rateLimitInfo.resetTime.getTime() - now.getTime();
+        if (waitTime > 0) {
+            console.log(`Rate limit reached for user ${userId}. Waiting ${Math.ceil(waitTime/1000)} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+    }
 
     try {
-        const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
+        const response = await axios.get(url, { headers });
+        
+        // Update rate limit info from headers
+        const rateLimitInfo: RateLimitInfo = {
+            limit: parseInt(response.headers['fitbit-rate-limit-limit'] || '150'),
+            remaining: parseInt(response.headers['fitbit-rate-limit-remaining'] || '0'),
+            resetTime: new Date(now.getTime() + parseInt(response.headers['fitbit-rate-limit-reset'] || '3600') * 1000)
+        };
 
-        // Common headers for all Fitbit API requests
+        userRateLimits.set(userId, {
+            userId,
+            rateLimitInfo,
+            lastUpdated: now
+        });
+
+        return response.data;
+    } catch (error: any) {
+        if (axios.isAxiosError(error) && error.response?.status === 429) {
+            // Get reset time from header or default to 1 hour
+            const resetSeconds = parseInt(error.response.headers['fitbit-rate-limit-reset'] || '3600');
+            const resetTime = new Date(now.getTime() + resetSeconds * 1000);
+            
+            // Update rate limit info
+            userRateLimits.set(userId, {
+                userId,
+                rateLimitInfo: {
+                    limit: 150,
+                    remaining: 0,
+                    resetTime
+                },
+                lastUpdated: now
+            });
+
+            if (retryCount < 3) {
+                console.log(`Rate limited for user ${userId}. Waiting ${resetSeconds} seconds before retry...`);
+                await new Promise(resolve => setTimeout(resolve, resetSeconds * 1000));
+                return fetchWithRateLimit(url, headers, userId, retryCount + 1);
+            }
+        }
+        throw error;
+    }
+}
+
+// Add this helper function to manage concurrent requests
+async function processBatchWithRateLimit(
+    userId: string, 
+    requests: Array<{ url: string, headers: any }>, 
+    batchSize = 10
+): Promise<any[]> {
+    const results = [];
+    
+    // Process in batches to respect rate limits
+    for (let i = 0; i < requests.length; i += batchSize) {
+        const batch = requests.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+            batch.map(req => fetchWithRateLimit(req.url, req.headers, userId)
+                .catch(error => ({ error })))
+        );
+        results.push(...batchResults);
+
+        // Check remaining rate limit and add delay if needed
+        const userLimit = userRateLimits.get(userId);
+        if (userLimit && userLimit.rateLimitInfo.remaining < batchSize) {
+            const waitTime = Math.max(
+                1000, // Minimum 1 second delay
+                (userLimit.rateLimitInfo.resetTime.getTime() - Date.now()) / 2 // Half the time until reset
+            );
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+    }
+
+    return results;
+}
+
+// Modify the backfill endpoint to use the enhanced rate limiting
+router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: Response) => {
+    const { userId } = req.params;
+    const { startDate } = req.body;
+
+    if (!startDate) {
+        return res.status(400).json({ error: 'Start date is required for backfill' });
+    }
+
+    try {
+        // Initialize progress for all endpoints
+        const initProgress = db.prepare(`
+            INSERT OR REPLACE INTO fitbit_sync_progress (user_id, endpoint, last_synced_date, status)
+            VALUES (?, ?, ?, ?)
+        `);
+
+        // Start backfill process in background
+        res.json({ 
+            message: 'Backfill process started', 
+            userId,
+            startDate 
+        });
+
+        const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
         const headers = {
             'Authorization': `Bearer ${access_token}`,
             'Accept-Language': 'en_US'
         };
 
-        // Calculate date range that doesn't include future dates
-        const now = new Date();
-        const yesterday = addDays(now, -1); // Use yesterday as the latest date to ensure complete data
-        
-        const end = endDate ? 
-            new Date(endDate as string) > yesterday ? format(yesterday, 'yyyy-MM-dd') : endDate as string : 
-            format(yesterday, 'yyyy-MM-dd');
-        
-        // Ensure we don't exceed 30 days for endpoints with limits
-        const thirtyDaysAgo = format(addDays(new Date(end), -30), 'yyyy-MM-dd');
-        const start = startDate ? 
-            startDate as string > thirtyDaysAgo ? startDate as string : thirtyDaysAgo :
-            thirtyDaysAgo;
+        const endDate = format(addDays(new Date(), -1), 'yyyy-MM-dd');
 
-        console.log('Fetching Fitbit data for date range:', { 
-            start, 
-            end, 
-            now: now.toISOString(),
-            isEndInFuture: new Date(end) > yesterday,
-            yesterday: format(yesterday, 'yyyy-MM-dd'),
-            thirtyDaysAgo
-        });
+        // Process each endpoint with its specific constraints
+        for (const [endpointKey, config] of Object.entries(ENDPOINT_CONFIGS)) {
+            try {
+                initProgress.run(userId, endpointKey, startDate, 'in_progress');
+                
+                let currentDate = new Date(endDate); // Start from most recent
+                const startDateTime = new Date(startDate);
+                let hasMoreData = true;
 
-        // Fetch all data types in parallel, handling errors individually
-        const results = await Promise.allSettled([
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/activities/heart/date/${start}/${end}.json`, {
-                headers
-            }),
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/sleep/date/${start}/${end}.json`, {
-                headers
-            }),
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/activities/steps/date/${start}/${end}.json`, {
-                headers
-            }),
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/hrv/date/${start}/${end}.json`, {
-                headers
-            })
-        ]);
+                while (hasMoreData && currentDate >= startDateTime) {
+                    // Calculate the start date for this chunk
+                    let chunkStartDate = addDays(currentDate, -(config.maxDays - 1));
+                    if (chunkStartDate < startDateTime) {
+                        chunkStartDate = startDateTime;
+                    }
 
-        // Optional endpoints that might not be available for all devices
-        const optionalResults = await Promise.allSettled([
-            // SpO2 data for main sleep periods
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/spo2/date/${start}/${end}.json`, {
-                headers
-            }).catch(error => {
-                console.log('SpO2 data not available:', error.response?.status, error.response?.data);
-                return null;
-            }),
-            // Temperature data from skin temperature sensor during main sleep
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/temp/skin/date/${start}/${end}.json`, {
-                headers
-            }).catch(error => {
-                console.log('Temperature data not available:', error.response?.status, error.response?.data);
-                return null;
-            }),
-            // Breathing rate data from main sleep
-            axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/br/date/${start}/${end}.json`, {
-                headers
-            }).catch(error => {
-                console.log('Breathing rate data not available:', error.response?.status, error.response?.data);
-                return null;
-            })
-        ]);
+                    const url = `https://api.fitbit.com/1/user/${fitbit_user_id}/${config.path}/date/${format(chunkStartDate, 'yyyy-MM-dd')}/${format(currentDate, 'yyyy-MM-dd')}.json`;
+                    
+                    try {
+                        const data = await fetchWithRateLimit(url, headers, userId);
+                        await processEndpointData(userId, endpointKey, data, format(chunkStartDate, 'yyyy-MM-dd'), format(currentDate, 'yyyy-MM-dd'));
 
-        // Log any failed requests for required endpoints
-        results.forEach((result, index) => {
-            if (result.status === 'rejected') {
-                const endpoints = ['heart', 'sleep', 'steps', 'hrv'];
-                console.log(`${endpoints[index]} API request failed:`, result.reason?.response?.status, result.reason?.response?.data);
-            }
-        });
+                        // Update progress
+                        db.prepare(`
+                            UPDATE fitbit_sync_progress 
+                            SET last_synced_date = ?, 
+                                status = 'in_progress',
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE user_id = ? AND endpoint = ?
+                        `).run(format(currentDate, 'yyyy-MM-dd'), userId, endpointKey);
 
-        // Process successful results
-        const [heartData, sleepData, activityData, hrvData] = results.map(result => 
-            result.status === 'fulfilled' ? result.value.data : null
-        );
+                        // Check if we got any data
+                        const hasData = data && (
+                            data.activities?.length > 0 ||
+                            data.sleep?.length > 0 ||
+                            data.hrv?.length > 0 ||
+                            data.br?.length > 0 ||
+                            data.temperature?.length > 0 ||
+                            data['activities-active-zone-minutes']?.length > 0
+                        );
 
-        const [spo2Data, tempData, breathingData] = optionalResults.map(result =>
-            result.status === 'fulfilled' && result.value ? result.value.data : null
-        );
+                        // If no data and we're beyond account creation, we can stop
+                        if (!hasData && currentDate < new Date('2009-01-01')) { // Fitbit founded in 2007
+                            hasMoreData = false;
+                        }
 
-        // Process and store data in database
-        const stmt = db.prepare(`
-            INSERT OR REPLACE INTO daily_summary (
-                user_id, date, resting_hr, steps, hrv_rmssd, 
-                spo2_avg, skin_temp_delta, breathing_rate,
-                total_sleep, deep_sleep, light_sleep, rem_sleep, wake_minutes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+                    } catch (error: any) {
+                        if (error.response?.status === 429) {
+                            // Rate limit hit - wait and retry this chunk
+                            continue;
+                        }
+                        throw error;
+                    }
 
-        let daysProcessed = 0;
-        // Process each day's data
-        if (heartData && heartData['activities-heart']) {
-            for (const day of heartData['activities-heart']) {
-                const sleep = sleepData?.sleep?.find((s: any) => s.dateOfSleep === day.dateTime);
-                const hrv = hrvData?.hrv?.find((h: any) => h.dateTime === day.dateTime);
-                const spo2 = spo2Data?.find((s: any) => s.dateTime === day.dateTime);
-                const temp = tempData?.tempSkin?.find((t: any) => t.dateTime === day.dateTime);
-                const breathing = breathingData?.br?.find((b: any) => b.dateTime === day.dateTime);
-                const steps = activityData?.['activities-steps']?.find((a: any) => a.dateTime === day.dateTime);
+                    // Move back in time
+                    currentDate = addDays(chunkStartDate, -1);
+                }
 
-                stmt.run(
-                    userId,
-                    day.dateTime,
-                    day.value?.restingHeartRate,
-                    steps?.value || 0,
-                    hrv?.value?.dailyRmssd || null,
-                    spo2?.value?.avg || null,
-                    temp?.value?.nightlyRelative || null,
-                    breathing?.value?.breathingRate || null,
-                    sleep?.duration || 0,
-                    sleep?.levels?.summary?.deep?.minutes || 0,
-                    sleep?.levels?.summary?.light?.minutes || 0,
-                    sleep?.levels?.summary?.rem?.minutes || 0,
-                    sleep?.levels?.summary?.wake?.minutes || 0
-                );
-                daysProcessed++;
+                // Mark endpoint as completed
+                db.prepare(`
+                    UPDATE fitbit_sync_progress 
+                    SET status = 'completed',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ? AND endpoint = ?
+                `).run(userId, endpointKey);
+
+            } catch (error: any) {
+                console.error(`Error backfilling ${endpointKey}:`, error);
+                
+                // Update progress with error
+                db.prepare(`
+                    UPDATE fitbit_sync_progress 
+                    SET status = 'failed',
+                        error = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ? AND endpoint = ?
+                `).run(error.message, userId, endpointKey);
+
+                if (config.required) {
+                    throw error;
+                }
             }
         }
 
-        console.log(`Successfully processed ${daysProcessed} days of data`);
-        res.json({ success: true, daysProcessed });
+    } catch (error) {
+        console.error('Backfill error:', error);
+        // Error will be reflected in the progress table
+    }
+});
+
+// Add this endpoint to check backfill progress
+router.get('/backfill-status/:userId', async (req: Request<{ userId: string }>, res: Response) => {
+    const { userId } = req.params;
+
+    try {
+        const progress = db.prepare(`
+            SELECT endpoint, last_synced_date, status, error, updated_at
+            FROM fitbit_sync_progress
+            WHERE user_id = ?
+        `).all(userId);
+
+        res.json({ progress });
+    } catch (error) {
+        console.error('Error checking backfill status:', error);
+        res.status(500).json({ error: 'Failed to check backfill status' });
+    }
+});
+
+// Modify the existing sync endpoint to focus on recent data
+router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Response) => {
+    const { userId } = req.params;
+    
+    try {
+        const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
+        const headers = {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept-Language': 'en_US'
+        };
+        
+        // Get the last sync date from the progress table
+        const lastSync = db.prepare(`
+            SELECT MIN(last_synced_date) as last_sync
+            FROM fitbit_sync_progress
+            WHERE user_id = ? AND status = 'completed'
+        `).get(userId) as { last_sync: string | null };
+
+        // Use yesterday as end date to ensure complete data
+        const endDate = format(addDays(new Date(), -1), 'yyyy-MM-dd');
+        // If we have no sync history, start from 30 days ago
+        const startDate = lastSync?.last_sync 
+            ? format(addDays(new Date(lastSync.last_sync), 1), 'yyyy-MM-dd')
+            : format(addDays(new Date(), -30), 'yyyy-MM-dd');
+
+        // Only proceed if there's new data to sync
+        if (new Date(startDate) > new Date(endDate)) {
+            return res.json({ 
+                message: 'Already up to date',
+                lastSync: lastSync?.last_sync
+            });
+        }
+
+        // Process each endpoint
+        for (const [endpointKey, config] of Object.entries(ENDPOINT_CONFIGS)) {
+            try {
+                const url = `https://api.fitbit.com/1/user/${fitbit_user_id}/${config.path}/date/${startDate}/${endDate}.json`;
+                const data = await fetchWithRateLimit(url, headers, userId);
+                await processEndpointData(userId, endpointKey, data, startDate, endDate);
+
+                // Update sync progress
+                db.prepare(`
+                    INSERT OR REPLACE INTO fitbit_sync_progress 
+                    (user_id, endpoint, last_synced_date, status, updated_at)
+                    VALUES (?, ?, ?, 'completed', CURRENT_TIMESTAMP)
+                `).run(userId, endpointKey, endDate);
+
+            } catch (error: any) {
+                console.error(`Error syncing ${endpointKey}:`, error);
+                if (config.required) {
+                    throw error;
+                }
+            }
+        }
+
+        res.json({ 
+            success: true,
+            message: 'Sync completed',
+            syncRange: { startDate, endDate },
+            needsBackfill: !lastSync?.last_sync
+        });
+        
     } catch (error) {
         console.error('Fitbit sync error:', error);
         res.status(500).json({ error: 'Failed to sync Fitbit data' });
@@ -388,24 +814,54 @@ router.get('/:userId/:metric', async (req: Request<{ userId: string; metric: str
 });
 
 // Check connection status
-router.get('/status/:userId', async (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
+router.get('/status', async (req: Request, res: Response) => {
+    const { userId } = req.query;
+
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
 
     try {
         const connection = db.prepare(`
-            SELECT expires_at, updated_at FROM fitbit_connections 
+            SELECT access_token, refresh_token, expires_at, updated_at 
+            FROM fitbit_connections 
             WHERE user_id = ?
-        `).get(userId) as { expires_at: string; updated_at: string } | undefined;
+        `).get(userId) as { 
+            access_token: string; 
+            refresh_token: string;
+            expires_at: string; 
+            updated_at: string; 
+        } | undefined;
 
         if (!connection) {
             return res.json({ connected: false });
         }
 
-        // Check if token is valid
-        const isValid = parseISO(connection.expires_at) > new Date();
-        
+        // Check if access token is still valid
+        const expiresAt = parseISO(connection.expires_at);
+        const now = new Date();
+        const isAccessTokenValid = expiresAt > now;
+
+        // If access token is expired, try to refresh it
+        if (!isAccessTokenValid) {
+            try {
+                // Attempt to refresh the token
+                await refreshAccessToken(userId as string);
+                // If refresh successful, connection is valid
+                return res.json({ 
+                    connected: true,
+                    lastSync: connection.updated_at
+                });
+            } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError);
+                // If refresh fails, connection is invalid
+                return res.json({ connected: false });
+            }
+        }
+
+        // If we get here, access token is still valid
         res.json({ 
-            connected: isValid,
+            connected: true,
             lastSync: connection.updated_at
         });
     } catch (error) {

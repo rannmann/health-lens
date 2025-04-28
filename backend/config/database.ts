@@ -37,6 +37,18 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    -- Fitbit sync progress tracking
+    CREATE TABLE IF NOT EXISTS fitbit_sync_progress (
+        user_id TEXT,
+        endpoint TEXT,
+        last_synced_date TEXT,
+        status TEXT,
+        error TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, endpoint),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     -- Daily health metrics (now references our local user ID)
     CREATE TABLE IF NOT EXISTS daily_summary (
         user_id TEXT NOT NULL,

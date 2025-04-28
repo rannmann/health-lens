@@ -26,9 +26,14 @@
             </ul>
             <div v-else>
               <p>Last synced: {{ formatDate(fitbitLastSync) }}</p>
-              <button @click="syncFitbit" :disabled="isSyncing || isConnecting">
-                {{ isSyncing ? 'Syncing...' : 'Sync Now' }}
-              </button>
+              <div class="sync-actions">
+                <button @click="syncFitbit" :disabled="isSyncing || isBackfilling">
+                  {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
+                </button>
+                <button @click="runBackfill" :disabled="isSyncing || isBackfilling" class="secondary-button">
+                  {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
+                </button>
+              </div>
             </div>
           </div>
           <div class="settings-actions">
@@ -201,6 +206,7 @@ const zipCode = ref('');
 const weatherApiKey = ref('');
 const weatherConnected = ref(false);
 const isSyncing = ref(false);
+const isBackfilling = ref(false);
 const isSaving = ref(false);
 const isConnecting = ref(false);
 
@@ -234,9 +240,14 @@ async function syncFitbit() {
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
     const userId = localStorage.getItem('userId');
-    await axios.get(`/api/fitbit/sync/${userId}`, {
+    const response = await axios.get(`/api/fitbit/sync/${userId}`, {
       params: { startDate, endDate }
     });
+
+    // If we get a needsBackfill response but no error, that's okay - we still synced recent data
+    if (response.data.needsBackfill) {
+      console.log('Note: Historical data not found. Consider running backfill for complete history.');
+    }
     
     fitbitLastSync.value = new Date().toISOString();
   } catch (error) {
@@ -247,6 +258,41 @@ async function syncFitbit() {
   }
 }
 
+async function runBackfill() {
+  isBackfilling.value = true;
+  try {
+    const userId = localStorage.getItem('userId');
+    // Start backfill from 1 year ago by default
+    const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    await axios.post(`/api/fitbit/backfill/${userId}`, { startDate });
+    
+    // Poll for backfill status
+    const checkStatus = async () => {
+      const response = await axios.get(`/api/fitbit/backfill-status/${userId}`);
+      const { progress } = response.data;
+      
+      // Check if all endpoints are completed or failed
+      const isComplete = progress.every((p: any) => 
+        p.status === 'completed' || p.status === 'failed'
+      );
+      
+      if (isComplete) {
+        isBackfilling.value = false;
+        fitbitLastSync.value = new Date().toISOString();
+      } else {
+        setTimeout(checkStatus, 5000); // Check again in 5 seconds
+      }
+    };
+    
+    setTimeout(checkStatus, 5000); // Start checking after 5 seconds
+  } catch (error) {
+    console.error('Failed to run backfill:', error);
+    alert('Failed to run backfill. Please try again.');
+    isBackfilling.value = false;
+  }
+}
+
 // Check Fitbit connection status and handle OAuth callback
 onMounted(async () => {
   try {
@@ -254,7 +300,9 @@ onMounted(async () => {
     const userId = localStorage.getItem('userId');
     if (userId) {
       // Check if we have valid tokens for this user
-      const response = await axios.get(`/api/fitbit/status/${userId}`);
+      const response = await axios.get('/api/fitbit/status', {
+        params: { userId }
+      });
       fitbitConnected.value = response.data.connected;
       if (response.data.lastSync) {
         fitbitLastSync.value = response.data.lastSync;
@@ -534,5 +582,19 @@ button:disabled {
 
 .export-options button {
   flex: 1;
+}
+
+.sync-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.secondary-button {
+  background-color: #95a5a6;
+}
+
+.secondary-button:hover {
+  background-color: #7f8c8d;
 }
 </style> 
