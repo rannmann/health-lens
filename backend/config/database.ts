@@ -49,10 +49,38 @@ db.exec(`
     -- Weather settings
     CREATE TABLE IF NOT EXISTS weather_settings (
         user_id TEXT PRIMARY KEY,
+        openweathermap_api_key TEXT,
         zip_code TEXT,
-        api_key TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Weather provider sync status
+    CREATE TABLE IF NOT EXISTS weather_sync_status (
+        user_id TEXT,
+        provider TEXT,  -- 'openmeteo', 'openweathermap'
+        last_sync TEXT,
+        error TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, provider),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Weather readings (from any provider)
+    CREATE TABLE IF NOT EXISTS weather_reading (
+        user_id TEXT,
+        date TEXT,
+        temp_high REAL,
+        temp_low REAL,
+        temp_avg REAL,
+        humidity_avg REAL,
+        pressure_avg REAL,
+        wind_speed_avg REAL,
+        aqi_avg INTEGER,
+        pollen_index INTEGER,
+        source TEXT,  -- 'openmeteo', 'openweathermap', etc.
+        PRIMARY KEY(user_id, date),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -106,20 +134,6 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
-    -- Weather readings
-    CREATE TABLE IF NOT EXISTS weather_reading (
-        user_id TEXT,
-        timestamp TEXT,
-        temp REAL,
-        humidity REAL,
-        pressure REAL,
-        wind_speed REAL,
-        aqi INTEGER,
-        pollen_index INTEGER,
-        PRIMARY KEY(user_id, timestamp),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
     -- Medication events
     CREATE TABLE IF NOT EXISTS medication_event (
         user_id TEXT,
@@ -156,7 +170,7 @@ db.exec(`
     -- Create indexes for better query performance
     CREATE INDEX IF NOT EXISTS idx_daily_summary_user_date ON daily_summary(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_awair_reading_user_timestamp ON awair_reading(user_id, timestamp);
-    CREATE INDEX IF NOT EXISTS idx_weather_reading_user_timestamp ON weather_reading(user_id, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_weather_reading_user_timestamp ON weather_reading(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_medication_event_user_timestamp ON medication_event(user_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_symptom_event_user_timestamp ON symptom_event(user_id, timestamp);
 `);

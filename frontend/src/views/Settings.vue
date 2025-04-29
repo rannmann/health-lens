@@ -152,11 +152,40 @@
                 Add weather data to correlate with your health metrics:
               </p>
               <ul v-if="!weatherConnected" class="feature-list">
-                <li>Temperature and humidity</li>
-                <li>Air quality index (AQI)</li>
-                <li>Pollen and allergen levels</li>
-                <li>UV index and pressure</li>
+                <li>Temperature (high, low, average)</li>
+                <li>Humidity and air pressure</li>
+                <li>Wind speed</li>
+                <li>Air Quality Index (AQI)</li>
               </ul>
+              <div v-else>
+                <div class="sync-status">
+                  <h4>Last Sync</h4>
+                  <ul>
+                    <li>
+                      Open-Meteo: 
+                      {{ formatDate(weatherSyncStatus?.openmeteo?.lastSync) }}
+                      <span v-if="weatherSyncStatus?.openmeteo?.error" class="error-text">
+                        ({{ weatherSyncStatus.openmeteo.error }})
+                      </span>
+                    </li>
+                    <li>
+                      OpenWeatherMap: 
+                      {{ formatDate(weatherSyncStatus?.openweathermap?.lastSync) }}
+                      <span v-if="weatherSyncStatus?.openweathermap?.error" class="error-text">
+                        ({{ weatherSyncStatus.openweathermap.error }})
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+                <div class="sync-actions">
+                  <button @click="syncWeather" :disabled="isSyncing">
+                    {{ isSyncing ? 'Syncing...' : 'Sync Weather Data' }}
+                  </button>
+                  <button @click="runWeatherBackfill" :disabled="isSyncing" class="secondary-button">
+                    {{ isSyncing ? 'Running Backfill...' : 'Run Full Backfill' }}
+                  </button>
+                </div>
+              </div>
               <div class="form-group">
                 <label for="zipCode">ZIP Code</label>
                 <input 
@@ -167,7 +196,7 @@
                 />
               </div>
               <div class="form-group">
-                <label for="weatherApiKey">OpenWeatherMap API Key</label>
+                <label for="weatherApiKey">OpenWeatherMap API Key (for AQI data)</label>
                 <div class="input-with-help">
                   <input 
                     type="password" 
@@ -181,6 +210,10 @@
                     Get an API key
                   </a>
                 </div>
+                <p class="help-text">
+                  Note: OpenWeatherMap API key is only needed for Air Quality Index (AQI) data.
+                  Temperature and other weather data is provided by Open-Meteo for free.
+                </p>
               </div>
             </div>
             <div class="settings-actions">
@@ -235,7 +268,16 @@ const isSaving = ref(false);
 const isConnecting = ref(false);
 const isLoading = ref(true);
 
-function formatDate(dateString: string) {
+interface WeatherSyncStatus {
+  [provider: string]: {
+    lastSync: string;
+    error: string | null;
+  };
+}
+
+const weatherSyncStatus = ref<WeatherSyncStatus>();
+
+function formatDate(dateString: string | undefined) {
   if (!dateString) return 'Never';
   return format(new Date(dateString), 'MMM d, yyyy h:mm a');
 }
@@ -318,6 +360,72 @@ async function runBackfill() {
   }
 }
 
+async function syncWeather() {
+  isSyncing.value = true;
+  try {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      throw new Error('No user ID found');
+    }
+
+    // Sync last 7 days by default
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
+
+    await axios.post('/api/weather/sync', {
+      userId,
+      startDate,
+      endDate
+    });
+
+    // Refresh status
+    const response = await axios.get('/api/weather/status', {
+      params: { userId }
+    });
+    weatherSyncStatus.value = response.data.syncStatus;
+  } catch (error) {
+    console.error('Failed to sync weather data:', error);
+    alert('Failed to sync weather data. Please try again.');
+  } finally {
+    isSyncing.value = false;
+  }
+}
+
+async function runWeatherBackfill() {
+  isSyncing.value = true;
+  try {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      throw new Error('No user ID found');
+    }
+
+    // Start backfill from 1 year ago by default
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
+
+    await axios.post('/api/weather/sync', {
+      userId,
+      startDate,
+      endDate
+    });
+
+    // Refresh status
+    const response = await axios.get('/api/weather/status', {
+      params: { userId }
+    });
+    weatherSyncStatus.value = response.data.syncStatus;
+  } catch (error) {
+    console.error('Failed to run weather backfill:', error);
+    alert('Failed to run weather backfill. Please try again.');
+  } finally {
+    isSyncing.value = false;
+  }
+}
+
 // Check Fitbit connection status and handle OAuth callback
 onMounted(async () => {
   isLoading.value = true;
@@ -353,6 +461,9 @@ onMounted(async () => {
       }
       if (weatherResponse.data.apiKey) {
         weatherApiKey.value = weatherResponse.data.apiKey;
+      }
+      if (weatherResponse.data.syncStatus) {
+        weatherSyncStatus.value = weatherResponse.data.syncStatus;
       }
     }
     
@@ -715,5 +826,41 @@ button:disabled {
   0% { opacity: 0.6; }
   50% { opacity: 1; }
   100% { opacity: 0.6; }
+}
+
+.sync-status {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.sync-status h4 {
+  margin: 0 0 0.5rem 0;
+  color: #34495e;
+  font-size: 1rem;
+}
+
+.sync-status ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sync-status li {
+  padding: 0.25rem 0;
+  color: #34495e;
+}
+
+.error-text {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin-left: 0.5rem;
+}
+
+.help-text {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin-top: 0.5rem;
 }
 </style> 

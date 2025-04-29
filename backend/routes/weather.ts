@@ -1,166 +1,161 @@
-import express, { Request, Response } from 'express';
-import axios from 'axios';
+import express from 'express';
+import { fetchHistoricalData, fetchCurrentData } from '../services/weather/openMeteo';
+import { fetchAirQuality, validateApiKey } from '../services/weather/openWeatherMap';
+import { getCoordinatesFromZip } from '../services/weather/geocoding';
 import db from '../config/database';
-
-interface WeatherSettings {
-    zip_code: string | null;
-    api_key: string | null;
-}
 
 const router = express.Router();
 
-// Get Weather connection status and settings
-router.get('/status', async (req: Request, res: Response) => {
-    try {
-        const { userId } = req.query;
-        if (!userId) {
-            return res.status(400).json({ error: 'userId is required' });
-        }
+interface WeatherSettings {
+  zip_code: string;
+  openweathermap_api_key: string;
+}
 
-        // Get user's weather settings from database
-        const userSettings = db.prepare('SELECT zip_code, api_key FROM weather_settings WHERE user_id = ?').get(userId) as WeatherSettings | undefined;
-        
-        if (!userSettings?.zip_code || !userSettings?.api_key) {
-            return res.json({
-                connected: false,
-                zipCode: null,
-                apiKey: null
-            });
-        }
+interface SyncStatus {
+  provider: string;
+  last_sync: string;
+  error: string | null;
+}
 
-        // Test the API key with a simple current weather request
-        try {
-            await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
-                params: {
-                    zip: userSettings.zip_code,
-                    appid: userSettings.api_key,
-                    units: 'metric'
-                }
-            });
-
-            return res.json({
-                connected: true,
-                zipCode: userSettings.zip_code,
-                apiKey: userSettings.api_key
-            });
-        } catch (error) {
-            // API key might be invalid
-            return res.json({
-                connected: false,
-                zipCode: null,
-                apiKey: null
-            });
-        }
-    } catch (error) {
-        console.error('Weather status error:', error);
-        res.status(500).json({ error: 'Failed to check weather settings' });
+// Get weather settings status
+router.get('/status', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
+
+    const settings = db.prepare(`
+      SELECT zip_code, openweathermap_api_key
+      FROM weather_settings
+      WHERE user_id = ?
+    `).get(userId) as WeatherSettings | undefined;
+
+    if (!settings) {
+      return res.json({
+        connected: false,
+        message: 'Weather settings not found'
+      });
+    }
+
+    const syncStatus = db.prepare(`
+      SELECT provider, last_sync, error
+      FROM weather_sync_status
+      WHERE user_id = ?
+    `).all(userId) as SyncStatus[];
+
+    return res.json({
+      connected: true,
+      zipCode: settings.zip_code,
+      apiKey: settings.openweathermap_api_key,
+      syncStatus: syncStatus.reduce<Record<string, { lastSync: string; error: string | null }>>((acc, status) => {
+        acc[status.provider] = {
+          lastSync: status.last_sync,
+          error: status.error
+        };
+        return acc;
+      }, {})
+    });
+  } catch (error) {
+    console.error('Error getting weather status:', error);
+    res.status(500).json({ error: 'Failed to get weather status' });
+  }
 });
 
-// Get current weather data
-router.get('/current', async (req: Request, res: Response) => {
-    try {
-        const zipCode = process.env.WEATHER_ZIP_CODE;
-        const apiKey = process.env.WEATHER_API_KEY;
-
-        const [weatherResponse, airPollutionResponse] = await Promise.all([
-            axios.get(`https://api.openweathermap.org/data/2.5/weather?zip=${zipCode}&appid=${apiKey}&units=metric`),
-            axios.get(`https://api.openweathermap.org/data/2.5/air_pollution?zip=${zipCode}&appid=${apiKey}`)
-        ]);
-
-        const weatherData = weatherResponse.data;
-        const airPollutionData = airPollutionResponse.data;
-
-        // Store current weather data
-        const stmt = db.prepare(`
-            INSERT OR REPLACE INTO weather_reading (
-                user_id, timestamp, temp, humidity, pressure, wind_speed, uv_index, aqi
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        stmt.run(
-            'default_user',
-            new Date().toISOString(),
-            weatherData.main.temp,
-            weatherData.main.humidity,
-            weatherData.main.pressure,
-            weatherData.wind.speed,
-            weatherData.uvi || 0,
-            airPollutionData.list[0].main.aqi
-        );
-
-        res.json({
-            temperature: weatherData.main.temp,
-            humidity: weatherData.main.humidity,
-            pressure: weatherData.main.pressure,
-            windSpeed: weatherData.wind.speed,
-            uvIndex: weatherData.uvi || 0,
-            aqi: airPollutionData.list[0].main.aqi
-        });
-    } catch (error) {
-        console.error('Weather fetch error:', error);
-        res.status(500).json({ error: 'Failed to fetch weather data' });
+// Save weather settings
+router.post('/settings', async (req, res) => {
+  try {
+    const { userId, zipCode, apiKey } = req.body;
+    if (!userId || !zipCode || !apiKey) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // Validate OpenWeatherMap API key
+    const isValidKey = await validateApiKey(apiKey);
+    if (!isValidKey) {
+      return res.status(400).json({ error: 'Invalid OpenWeatherMap API key' });
+    }
+
+    // Save settings
+    db.prepare(`
+      INSERT OR REPLACE INTO weather_settings (
+        user_id, zip_code, openweathermap_api_key, updated_at
+      ) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(userId, zipCode, apiKey);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving weather settings:', error);
+    res.status(500).json({ error: 'Failed to save weather settings' });
+  }
 });
 
-// Get historical weather data
-router.get('/history', async (req: Request, res: Response) => {
-    const { startDate, endDate } = req.query;
-    try {
-        const zipCode = process.env.WEATHER_ZIP_CODE;
-        const apiKey = process.env.WEATHER_API_KEY;
-
-        // Note: OpenWeatherMap's historical data requires a paid plan
-        // This is a placeholder for the actual implementation
-        const response = await axios.get(
-            `https://api.openweathermap.org/data/2.5/onecall/timemachine?zip=${zipCode}&appid=${apiKey}&units=metric`,
-            {
-                params: {
-                    start: startDate,
-                    end: endDate
-                }
-            }
-        );
-
-        res.json(response.data);
-    } catch (error) {
-        console.error('Weather history error:', error);
-        res.status(500).json({ error: 'Failed to fetch historical weather data' });
+// Sync weather data
+router.post('/sync', async (req, res) => {
+  try {
+    const { userId, startDate, endDate } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
-});
 
-// Save Weather settings
-router.post('/settings', async (req: Request, res: Response) => {
-    try {
-        const { userId, zipCode, apiKey } = req.body;
-        if (!userId || !zipCode || !apiKey) {
-            return res.status(400).json({ error: 'userId, zipCode, and apiKey are required' });
-        }
+    const settings = db.prepare(`
+      SELECT zip_code, openweathermap_api_key
+      FROM weather_settings
+      WHERE user_id = ?
+    `).get(userId) as WeatherSettings | undefined;
 
-        // Test the API key first
-        try {
-            await axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
-                params: {
-                    zip: zipCode,
-                    appid: apiKey,
-                    units: 'metric'
-                }
-            });
-        } catch (error) {
-            return res.status(400).json({ error: 'Invalid OpenWeatherMap API key or ZIP code' });
-        }
-
-        // Save or update settings
-        db.prepare(`
-            INSERT OR REPLACE INTO weather_settings (user_id, zip_code, api_key, updated_at)
-            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        `).run(userId, zipCode, apiKey);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Failed to save weather settings:', error);
-        res.status(500).json({ error: 'Failed to save weather settings' });
+    if (!settings) {
+      return res.status(400).json({ error: 'Weather settings not found' });
     }
+
+    // Get coordinates from ZIP code
+    const coords = await getCoordinatesFromZip(settings.zip_code, settings.openweathermap_api_key);
+
+    // Fetch data from both providers
+    const [weatherData, aqiData] = await Promise.all([
+      fetchHistoricalData(coords.latitude, coords.longitude, startDate, endDate),
+      fetchAirQuality(coords.latitude, coords.longitude, settings.openweathermap_api_key)
+    ]);
+
+    // Save the combined data
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO weather_reading (
+        user_id, date, temp_high, temp_low, temp_avg,
+        humidity_avg, pressure_avg, wind_speed_avg,
+        aqi_avg, source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    weatherData.forEach(data => {
+      stmt.run(
+        userId,
+        data.date,
+        data.temp_high,
+        data.temp_low,
+        data.temp_avg,
+        data.humidity_avg,
+        data.pressure_avg,
+        data.wind_speed_avg,
+        data.date === aqiData.date ? aqiData.aqi_avg : null,
+        'combined'
+      );
+    });
+
+    // Update sync status
+    const updateStatus = db.prepare(`
+      INSERT OR REPLACE INTO weather_sync_status (
+        user_id, provider, last_sync, updated_at
+      ) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `);
+
+    updateStatus.run(userId, 'openmeteo');
+    updateStatus.run(userId, 'openweathermap');
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error syncing weather data:', error);
+    res.status(500).json({ error: 'Failed to sync weather data' });
+  }
 });
 
 export const weatherRouter = router; 
