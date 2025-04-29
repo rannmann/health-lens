@@ -37,6 +37,25 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    -- Awair settings
+    CREATE TABLE IF NOT EXISTS awair_settings (
+        user_id TEXT PRIMARY KEY,
+        token TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Weather settings
+    CREATE TABLE IF NOT EXISTS weather_settings (
+        user_id TEXT PRIMARY KEY,
+        zip_code TEXT,
+        api_key TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     -- Fitbit sync progress tracking
     CREATE TABLE IF NOT EXISTS fitbit_sync_progress (
         user_id TEXT,
