@@ -9,57 +9,65 @@
       <div class="settings-card">
         <div class="settings-header">
           <h3>Fitbit</h3>
-          <span :class="['status', { 'connected': fitbitConnected }]">
+          <div v-if="isLoading" class="loading-spinner"></div>
+          <span v-else :class="['status', { 'connected': fitbitConnected }]">
             {{ fitbitConnected ? 'Connected' : 'Not Connected' }}
           </span>
         </div>
         <div class="settings-content">
-          <div class="connection-info">
-            <p v-if="!fitbitConnected">
-              Connect your Fitbit account to sync health data including:
-            </p>
-            <ul v-if="!fitbitConnected" class="feature-list">
-              <li>Heart rate and HRV</li>
-              <li>Sleep stages and duration</li>
-              <li>Steps and activity</li>
-              <li>SpO₂ and breathing rate</li>
-            </ul>
-            <div v-else>
-              <p>Last synced: {{ formatDate(fitbitLastSync) }}</p>
-              <div class="sync-actions">
-                <button @click="syncFitbit" :disabled="isSyncing || isBackfilling">
-                  {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
-                </button>
-                <button @click="runBackfill" :disabled="isSyncing || isBackfilling" class="secondary-button">
-                  {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
-                </button>
+          <div v-if="isLoading" class="loading-content">
+            <div class="loading-placeholder"></div>
+            <div class="loading-placeholder"></div>
+            <div class="loading-placeholder"></div>
+          </div>
+          <template v-else>
+            <div class="connection-info">
+              <p v-if="!fitbitConnected">
+                Connect your Fitbit account to sync health data including:
+              </p>
+              <ul v-if="!fitbitConnected" class="feature-list">
+                <li>Heart rate and HRV</li>
+                <li>Sleep stages and duration</li>
+                <li>Steps and activity</li>
+                <li>SpO₂ and breathing rate</li>
+              </ul>
+              <div v-else>
+                <p>Last synced: {{ formatDate(fitbitLastSync) }}</p>
+                <div class="sync-actions">
+                  <button @click="syncFitbit" :disabled="isSyncing || isBackfilling">
+                    {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
+                  </button>
+                  <button @click="runBackfill" :disabled="isSyncing || isBackfilling" class="secondary-button">
+                    {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="settings-actions">
-            <button 
-              v-if="!fitbitConnected" 
-              @click="connectFitbit" 
-              :disabled="isConnecting"
-              class="connect-button"
-            >
-              {{ isConnecting ? 'Connecting...' : 'Connect Fitbit' }}
-            </button>
-            <button 
-              v-else 
-              @click="disconnectFitbit" 
-              :disabled="isConnecting"
-              class="disconnect-button"
-            >
-              Disconnect
-            </button>
-            <a v-if="!fitbitConnected" 
-               href="https://dev.fitbit.com/apps" 
-               target="_blank" 
-               class="help-link">
-              How to get Fitbit API access
-            </a>
-          </div>
+            <div class="settings-actions">
+              <button 
+                v-if="!fitbitConnected" 
+                @click="connectFitbit" 
+                :disabled="isConnecting"
+                class="connect-button"
+              >
+                {{ isConnecting ? 'Connecting...' : 'Connect Fitbit' }}
+              </button>
+              <button 
+                v-else 
+                @click="disconnectFitbit" 
+                :disabled="isConnecting"
+                class="disconnect-button"
+              >
+                Disconnect
+              </button>
+              <a v-if="!fitbitConnected" 
+                 href="https://dev.fitbit.com/apps" 
+                 target="_blank" 
+                 class="help-link">
+                How to get Fitbit API access
+              </a>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -67,51 +75,59 @@
       <div class="settings-card">
         <div class="settings-header">
           <h3>Awair</h3>
-          <span :class="['status', { 'connected': awairConnected }]">
+          <div v-if="isLoading" class="loading-spinner"></div>
+          <span v-else :class="['status', { 'connected': awairConnected }]">
             {{ awairConnected ? 'Connected' : 'Not Connected' }}
           </span>
         </div>
         <div class="settings-content">
-          <div class="connection-info">
-            <p v-if="!awairConnected">
-              Connect your Awair device to track indoor air quality metrics:
-            </p>
-            <ul v-if="!awairConnected" class="feature-list">
-              <li>Air quality score</li>
-              <li>PM2.5 and PM10 levels</li>
-              <li>CO₂ and VOC levels</li>
-              <li>Temperature and humidity</li>
-            </ul>
-            <div class="form-group">
-              <label for="awairToken">Access Token</label>
-              <div class="input-with-help">
-                <input 
-                  type="password" 
-                  id="awairToken" 
-                  v-model="awairToken"
-                  placeholder="Enter your Awair API token"
-                />
-                <a href="https://developer.getawair.com/console/access-token" 
-                   target="_blank" 
-                   class="help-link">
-                  Get your token
-                </a>
+          <div v-if="isLoading" class="loading-content">
+            <div class="loading-placeholder"></div>
+            <div class="loading-placeholder"></div>
+            <div class="loading-placeholder"></div>
+          </div>
+          <template v-else>
+            <div class="connection-info">
+              <p v-if="!awairConnected">
+                Connect your Awair device to track indoor air quality metrics:
+              </p>
+              <ul v-if="!awairConnected" class="feature-list">
+                <li>Air quality score</li>
+                <li>PM2.5 and PM10 levels</li>
+                <li>CO₂ and VOC levels</li>
+                <li>Temperature and humidity</li>
+              </ul>
+              <div class="form-group">
+                <label for="awairToken">Access Token</label>
+                <div class="input-with-help">
+                  <input 
+                    type="password" 
+                    id="awairToken" 
+                    v-model="awairToken"
+                    placeholder="Enter your Awair API token"
+                  />
+                  <a href="https://developer.getawair.com/console/access-token" 
+                     target="_blank" 
+                     class="help-link">
+                    Get your token
+                  </a>
+                </div>
+              </div>
+              <div v-if="awairDevices.length > 0" class="devices-list">
+                <h4>Connected Devices</h4>
+                <ul>
+                  <li v-for="device in awairDevices" :key="device.id">
+                    {{ device.name }} ({{ device.id }})
+                  </li>
+                </ul>
               </div>
             </div>
-            <div v-if="awairDevices.length > 0" class="devices-list">
-              <h4>Connected Devices</h4>
-              <ul>
-                <li v-for="device in awairDevices" :key="device.id">
-                  {{ device.name }} ({{ device.id }})
-                </li>
-              </ul>
+            <div class="settings-actions">
+              <button @click="saveAwairSettings" :disabled="isSaving">
+                {{ isSaving ? 'Saving...' : 'Save Settings' }}
+              </button>
             </div>
-          </div>
-          <div class="settings-actions">
-            <button @click="saveAwairSettings" :disabled="isSaving">
-              {{ isSaving ? 'Saving...' : 'Save Settings' }}
-            </button>
-          </div>
+          </template>
         </div>
       </div>
 
@@ -119,52 +135,60 @@
       <div class="settings-card">
         <div class="settings-header">
           <h3>Weather</h3>
-          <span :class="['status', { 'connected': weatherConnected }]">
+          <div v-if="isLoading" class="loading-spinner"></div>
+          <span v-else :class="['status', { 'connected': weatherConnected }]">
             {{ weatherConnected ? 'Connected' : 'Not Connected' }}
           </span>
         </div>
         <div class="settings-content">
-          <div class="connection-info">
-            <p v-if="!weatherConnected">
-              Add weather data to correlate with your health metrics:
-            </p>
-            <ul v-if="!weatherConnected" class="feature-list">
-              <li>Temperature and humidity</li>
-              <li>Air quality index (AQI)</li>
-              <li>Pollen and allergen levels</li>
-              <li>UV index and pressure</li>
-            </ul>
-            <div class="form-group">
-              <label for="zipCode">ZIP Code</label>
-              <input 
-                type="text" 
-                id="zipCode" 
-                v-model="zipCode"
-                placeholder="Enter your ZIP code"
-              />
-            </div>
-            <div class="form-group">
-              <label for="weatherApiKey">OpenWeatherMap API Key</label>
-              <div class="input-with-help">
+          <div v-if="isLoading" class="loading-content">
+            <div class="loading-placeholder"></div>
+            <div class="loading-placeholder"></div>
+            <div class="loading-placeholder"></div>
+          </div>
+          <template v-else>
+            <div class="connection-info">
+              <p v-if="!weatherConnected">
+                Add weather data to correlate with your health metrics:
+              </p>
+              <ul v-if="!weatherConnected" class="feature-list">
+                <li>Temperature and humidity</li>
+                <li>Air quality index (AQI)</li>
+                <li>Pollen and allergen levels</li>
+                <li>UV index and pressure</li>
+              </ul>
+              <div class="form-group">
+                <label for="zipCode">ZIP Code</label>
                 <input 
-                  type="password" 
-                  id="weatherApiKey" 
-                  v-model="weatherApiKey"
-                  placeholder="Enter your OpenWeatherMap API key"
+                  type="text" 
+                  id="zipCode" 
+                  v-model="zipCode"
+                  placeholder="Enter your ZIP code"
                 />
-                <a href="https://openweathermap.org/api" 
-                   target="_blank" 
-                   class="help-link">
-                  Get an API key
-                </a>
+              </div>
+              <div class="form-group">
+                <label for="weatherApiKey">OpenWeatherMap API Key</label>
+                <div class="input-with-help">
+                  <input 
+                    type="password" 
+                    id="weatherApiKey" 
+                    v-model="weatherApiKey"
+                    placeholder="Enter your OpenWeatherMap API key"
+                  />
+                  <a href="https://openweathermap.org/api" 
+                     target="_blank" 
+                     class="help-link">
+                    Get an API key
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="settings-actions">
-            <button @click="saveWeatherSettings" :disabled="isSaving">
-              {{ isSaving ? 'Saving...' : 'Save Settings' }}
-            </button>
-          </div>
+            <div class="settings-actions">
+              <button @click="saveWeatherSettings" :disabled="isSaving">
+                {{ isSaving ? 'Saving...' : 'Save Settings' }}
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -209,6 +233,7 @@ const isSyncing = ref(false);
 const isBackfilling = ref(false);
 const isSaving = ref(false);
 const isConnecting = ref(false);
+const isLoading = ref(true);
 
 function formatDate(dateString: string) {
   if (!dateString) return 'Never';
@@ -295,21 +320,43 @@ async function runBackfill() {
 
 // Check Fitbit connection status and handle OAuth callback
 onMounted(async () => {
+  isLoading.value = true;
   try {
-    // Check if we have a userId stored
+    // Load Fitbit status
     const userId = localStorage.getItem('userId');
     if (userId) {
-      // Check if we have valid tokens for this user
-      const response = await axios.get('/api/fitbit/status', {
-        params: { userId }
-      });
-      fitbitConnected.value = response.data.connected;
-      if (response.data.lastSync) {
-        fitbitLastSync.value = response.data.lastSync;
+      const [fitbitResponse, awairResponse, weatherResponse] = await Promise.all([
+        axios.get('/api/fitbit/status', { params: { userId } }),
+        axios.get('/api/awair/status', { params: { userId } }),
+        axios.get('/api/weather/status', { params: { userId } })
+      ]);
+
+      // Update Fitbit status
+      fitbitConnected.value = fitbitResponse.data.connected;
+      if (fitbitResponse.data.lastSync) {
+        fitbitLastSync.value = fitbitResponse.data.lastSync;
+      }
+
+      // Update Awair status
+      awairConnected.value = awairResponse.data.connected;
+      if (awairResponse.data.token) {
+        awairToken.value = awairResponse.data.token;
+      }
+      if (awairResponse.data.devices) {
+        awairDevices.value = awairResponse.data.devices;
+      }
+
+      // Update Weather status
+      weatherConnected.value = weatherResponse.data.connected;
+      if (weatherResponse.data.zipCode) {
+        zipCode.value = weatherResponse.data.zipCode;
+      }
+      if (weatherResponse.data.apiKey) {
+        weatherApiKey.value = weatherResponse.data.apiKey;
       }
     }
     
-    // Check URL for OAuth callback
+    // Handle Fitbit OAuth callback
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const error = urlParams.get('error');
@@ -317,17 +364,11 @@ onMounted(async () => {
     if (code) {
       isConnecting.value = true;
       try {
-        // Exchange code for tokens
         const response = await axios.get('/api/fitbit/callback', { params: { code } });
         if (response.data.success) {
           fitbitConnected.value = true;
-          // Store our local user ID, not the Fitbit user ID
           localStorage.setItem('userId', response.data.userId);
-          
-          // Start initial sync
           await syncFitbit();
-          
-          // Clean up URL
           window.history.replaceState({}, document.title, '/settings');
         }
       } catch (error) {
@@ -341,15 +382,37 @@ onMounted(async () => {
       window.history.replaceState({}, document.title, '/settings');
     }
   } catch (error) {
-    console.error('Failed to check Fitbit status:', error);
+    console.error('Failed to load settings:', error);
+  } finally {
+    isLoading.value = false;
   }
 });
 
 async function saveAwairSettings() {
   isSaving.value = true;
   try {
-    // TODO: Implement Awair settings save
-    awairConnected.value = true;
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      throw new Error('No user ID found');
+    }
+
+    const response = await axios.post('/api/awair/settings', {
+      userId,
+      token: awairToken.value
+    });
+
+    if (response.data.success) {
+      awairConnected.value = true;
+      // Refresh devices list
+      const statusResponse = await axios.get('/api/awair/status', {
+        params: { userId }
+      });
+      awairDevices.value = statusResponse.data.devices || [];
+    }
+  } catch (error) {
+    console.error('Failed to save Awair settings:', error);
+    alert('Failed to save Awair settings. Please check your token and try again.');
+    awairConnected.value = false;
   } finally {
     isSaving.value = false;
   }
@@ -358,8 +421,24 @@ async function saveAwairSettings() {
 async function saveWeatherSettings() {
   isSaving.value = true;
   try {
-    // TODO: Implement weather settings save
-    weatherConnected.value = true;
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      throw new Error('No user ID found');
+    }
+
+    const response = await axios.post('/api/weather/settings', {
+      userId,
+      zipCode: zipCode.value,
+      apiKey: weatherApiKey.value
+    });
+
+    if (response.data.success) {
+      weatherConnected.value = true;
+    }
+  } catch (error) {
+    console.error('Failed to save weather settings:', error);
+    alert('Failed to save weather settings. Please check your API key and ZIP code and try again.');
+    weatherConnected.value = false;
   } finally {
     isSaving.value = false;
   }
@@ -596,5 +675,45 @@ button:disabled {
 
 .secondary-button:hover {
   background-color: #7f8c8d;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-content {
+  padding: 1rem 0;
+}
+
+.loading-placeholder {
+  height: 1rem;
+  background: #f3f3f3;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  animation: pulse 1.5s infinite;
+}
+
+.loading-placeholder:nth-child(2) {
+  width: 80%;
+}
+
+.loading-placeholder:nth-child(3) {
+  width: 60%;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
 }
 </style> 
