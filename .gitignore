@@ -131,3 +131,6 @@ dist
 
 # Ignore local database
 backend/data
+
+# For now, ignore package lock files since we're using both linux and windows.
+package-lock.json
