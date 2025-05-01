@@ -1,4 +1,56 @@
 # HealthLens
+A comprehensive health analytics platform for chronic illness management, focused on discovering patterns and correlations in health data.
+
+## Vision & Purpose
+
+HealthLens helps people with complex chronic illnesses identify their triggers and track treatment effectiveness by:
+- Automatically collecting health metrics (Fitbit), environmental data (Awair), and weather conditions
+- Tracking medication changes and their impacts over time
+- Recording and analyzing symptoms and health events
+- Providing visualization tools to identify patterns and correlations
+- Enabling AI-assisted pattern recognition through data exports
+
+The platform is designed for patients managing multiple medications and complex symptoms, making it easier to:
+- Track historical medication changes and their effects
+- Identify potential triggers and correlations
+- Share relevant history with healthcare providers
+- Maintain detailed health records without daily manual tracking
+
+## Key Features
+
+### Automated Data Collection
+- Fitbit metrics (HRV, sleep, SpO₂, activity, etc.)
+- Awair air quality data
+- Local weather conditions (including AQI, pollen)
+
+### Medication Management
+- Track medication changes as timeline events
+- Record dosage and frequency adjustments
+- Attach notes to specific medications/doses
+- Visualize medication changes alongside health metrics
+
+### Symptom Tracking
+- User-defined symptom list
+- Severity tracking (1-10 scale)
+- Customizable symptom categories
+- Active/inactive symptom management
+
+### Analysis Tools
+- Interactive time-series visualization
+- Configurable metric overlays
+- Saved view configurations
+- Medication timeline view
+- AI-ready data exports
+
+### Notes & Events
+- General health notes
+- Medication-specific observations
+- Life event tracking
+- Searchable note history
+
+## Technical Overview
+
+# HealthLens
 A view into your health data across multiple domains, all hosted locally.
 
 # 1. Project Goals
@@ -123,4 +175,23 @@ For detailed schema information, see the database initialization code.
 - **Env**: `.env.local` holds Fitbit client ID/secret, Awair token, weather API key, redirect URI.
 - `npm install && npm run dev`
 - Visit `http://localhost:8080` → onboard → backfill kicks off.
+
+## Documentation
+
+For detailed information about the project:
+- [ROADMAP.md](ROADMAP.md) - Development roadmap and feature planning
+- [docs/](docs/) - Detailed documentation
+  - [Architecture](docs/ARCHITECTURE.md)
+  - [Data Model](docs/DATA_MODEL.md)
+  - [User Guide](docs/USER_GUIDE.md)
+
+## Contributing
+
+HealthLens is an open-source project built to help chronic illness patients better understand their health patterns. While initially developed for personal use, we welcome contributions that align with the project's goals of being:
+- Privacy-focused (local-first)
+- Easy to use despite complexity
+- Focused on pattern recognition
+- Automated where possible
+
+## License
 
