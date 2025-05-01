@@ -18,12 +18,12 @@ A view into your health data across multiple domains, all hosted locally.
 # 2. Technology Stack
 
 - **Backend**: Node.js + Express
-- **DB**: SQLite via `knex` or `better‑sqlite3`
+- **DB**: SQLite via `better-sqlite3` with WAL mode enabled
 - **Auth**: Fitbit OAuth2 (code flow) with token storage in SQLite
-- **Task Scheduling**: `node‑cron` for daily sync / backfill jobs
+- **Task Scheduling**: `node-cron` for daily sync / backfill jobs
 - **Frontend**: Vue 3 + Vite, Pinia for state
-- **Charts**: ApexCharts (`vue‑apexcharts`) for interactive time‑series and annotations
-- **HTTP Client**: `axios` or `node‑fetch`
+- **Charts**: ApexCharts (`vue-apexcharts`) for interactive time-series and annotations
+- **HTTP Client**: `axios` or `node-fetch`
 
 ---
 
@@ -77,80 +77,26 @@ A view into your health data across multiple domains, all hosted locally.
 
 ---
 
-# 5. Data Model & Schema (Sketch)
+# 5. Data Model Overview
 
-```sql
--- Core table: one row per date per user
-CREATE TABLE daily_summary (
-  user_id        TEXT NOT NULL,
-  date           TEXT NOT NULL,
-  resting_hr     INTEGER,
-  steps          INTEGER,
-  hrv_rmssd      REAL,
-  spo2_avg       REAL,
-  breathing_rate REAL,
-  skin_temp_delta REAL,
-  total_sleep    INTEGER,
-  deep_sleep     INTEGER,
-  light_sleep    INTEGER,
-  rem_sleep      INTEGER,
-  wake_minutes   INTEGER,
-  azm_total      INTEGER,
-  azm_fatburn    INTEGER,
-  azm_cardio     INTEGER,
-  azm_peak       INTEGER,
-  PRIMARY KEY(user_id, date)
-);
+The application uses SQLite with WAL mode for better performance and foreign key constraints enabled. Key relationships include:
 
--- Awair 15‑min readings
-CREATE TABLE awair_reading (
-  user_id    TEXT,
-  device_id  TEXT,
-  timestamp  TEXT,
-  score      REAL,
-  pm25       REAL,
-  voc        REAL,
-  co2        REAL,
-  humidity   REAL,
-  temperature REAL,
-  PRIMARY KEY(user_id, device_id, timestamp)
-);
+## Core Tables
+- **Users**: Central user management with local user IDs
+- **Daily Summary**: Health metrics per user per day (sleep, activity, heart rate, etc.)
+- **Weather Reading**: Daily weather metrics including temperature, AQI, and pollen data
+- **Awair Reading**: 15-minute air quality measurements from Awair devices
+- **Events**: Medication events, symptom tracking, and general notes
 
--- Weather hourly/daily
-CREATE TABLE weather_reading (
-  user_id   TEXT,
-  timestamp TEXT,
-  temp      REAL,
-  humidity  REAL,
-  pressure  REAL,
-  wind_speed REAL,
-  uv_index  REAL,
-  aqi       INTEGER,
-  pollen_index INTEGER,
-  PRIMARY KEY(user_id, timestamp)
-);
+## Integration Settings & Sync Status
+- **Fitbit Connections**: OAuth tokens and user connection info
+- **Awair Settings**: Device tokens and configuration
+- **Weather Settings**: API keys and location preferences
+- **Sync Status Tables**: Track last sync times and errors for each integration
 
--- Medications & supplements timeline
-CREATE TABLE medication_event (
-  user_id    TEXT,
-  timestamp  TEXT,
-  name       TEXT,
-  action     TEXT,  -- e.g. 'start', 'stop', 'dose_change'
-  dose       TEXT,
-  notes      TEXT,
-  PRIMARY KEY(user_id, timestamp, name)
-);
+Each table uses appropriate indexes for query performance and maintains created_at/updated_at timestamps where relevant. All tables reference the central users table with ON DELETE CASCADE foreign keys for data integrity.
 
--- Symptom log
-CREATE TABLE symptom_event (
-  user_id    TEXT,
-  timestamp  TEXT,
-  symptom    TEXT,
-  severity   INTEGER,
-  notes      TEXT,
-  PRIMARY KEY(user_id, timestamp, symptom)
-);
-```
+For detailed schema information, see the database initialization code.
 
 ---
 
