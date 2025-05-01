@@ -25,24 +25,60 @@ HealthLens is built as a local-first application with a Node.js backend and Vue.
 
 ### 1. Frontend (Vue.js)
 
+#### Technology Stack
+- Vue 3 with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- Pinia for state management
+- Vue Router for navigation
+- ApexCharts for data visualization
+
+#### Project Structure
+```
+frontend/
+├── src/
+│   ├── api/        # API client configuration
+│   ├── assets/     # Static assets
+│   ├── components/ # Reusable UI components
+│   ├── layouts/    # Page layouts
+│   ├── router/     # Route definitions
+│   ├── stores/     # Pinia state management
+│   ├── styles/     # Global styles
+│   ├── types/      # TypeScript definitions
+│   └── views/      # Page components
+```
+
 #### Views
-- Dashboard: Primary visualization interface
-- Medication Timeline: Historical medication changes
-- Symptom Manager: Symptom configuration and tracking
-- Notes & Events: General health observations
+- `Dashboard.vue`: Primary visualization interface
+  - Date range selection
+  - Configurable metric displays
+  - Multiple chart types (line, bar)
+  - Medication and symptom annotations
+- `Medications.vue`: Medication tracking interface
+- `Symptoms.vue`: Symptom management and tracking
+- `Settings.vue`: Application configuration
+- `NotesView.vue`: Health notes and events
 
 #### State Management
-- Pinia stores for:
-  - User settings
-  - Current view configurations
-  - Active data filters
-  - Cached query results
+The `health.ts` Pinia store manages:
+- Daily health summaries (Fitbit data)
+- Awair environmental readings
+- Weather data
+- Medication events
+- Symptom events
+- Loading states and error handling
 
 #### Components
-- Interactive time-series graphs
-- Data entry forms
-- Configuration panels
-- Search interfaces
+Current implementation:
+- `AppNavigation.vue`: Main navigation component
+- `HelloWorld.vue`: Example component
+
+Planned/Needed:
+- Reusable chart components
+- Form input components
+- Loading and error states
+- Data entry modals
+- Metric selection components
 
 ### 2. Backend (Node.js + Express)
 
