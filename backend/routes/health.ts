@@ -12,8 +12,6 @@ router.get('/:userId/metrics', (req: Request<{ userId: string }>, res: Response)
     const { userId } = req.params;
     const { startDate, endDate, metrics } = req.query;
 
-    console.log('Metrics request:', { userId, startDate, endDate, metrics });
-
     if (!startDate || !endDate || !metrics) {
         return res.status(400).json({ error: 'Start date, end date, and metrics are required' });
     }
@@ -21,7 +19,6 @@ router.get('/:userId/metrics', (req: Request<{ userId: string }>, res: Response)
     try {
         // Parse metrics array
         const metricsList = (metrics as string).split(',');
-        console.log('Requested metrics:', metricsList);
         
         // Define valid metrics based on daily_summary table columns
         const validMetrics = new Set([
@@ -32,7 +29,6 @@ router.get('/:userId/metrics', (req: Request<{ userId: string }>, res: Response)
         ]);
 
         const requestedMetrics = metricsList.filter(m => validMetrics.has(m));
-        console.log('Valid metrics:', requestedMetrics);
 
         if (requestedMetrics.length === 0) {
             console.log('No valid metrics found in:', metricsList);
@@ -47,12 +43,9 @@ router.get('/:userId/metrics', (req: Request<{ userId: string }>, res: Response)
             AND date BETWEEN ? AND ?
             ORDER BY date ASC
         `;
-        console.log('SQL Query:', sql);
-        console.log('SQL Params:', [userId, startDate, endDate]);
 
         const stmt = db.prepare(sql);
         const data = stmt.all(userId, startDate, endDate);
-        console.log('Query results:', data);
 
         return res.json({ data });
     } catch (error) {

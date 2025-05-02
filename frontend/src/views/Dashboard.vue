@@ -153,7 +153,7 @@ const userStore = useUserStore()
 const router = useRouter()
 
 // Date range state
-const startDate = ref(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
+const startDate = ref(format(subDays(new Date(), 30), 'yyyy-MM-dd'))
 const endDate = ref(format(new Date(), 'yyyy-MM-dd'))
 
 // Primary graph configuration
@@ -240,9 +240,12 @@ const chartCommonOptions = {
   }
 }
 
+const SERIES_COLORS = ['#008FFB', '#FEB019'];
+
 // Primary chart options
 const primaryChartOptions = computed(() => ({
   ...chartCommonOptions,
+  colors: SERIES_COLORS,
   chart: {
     ...chartCommonOptions.chart,
     type: 'line',
@@ -287,7 +290,10 @@ const primaryChartOptions = computed(() => ({
         text: getMetricLabel(primaryMetric1.value)
       },
       labels: {
-        formatter: (value: number) => value.toFixed(1)
+        formatter: (value: number) => value.toFixed(1),
+        style: {
+          colors: [SERIES_COLORS[0]] // Color for Y-Axis 1
+        }
       }
     },
     primaryMetric2.value ? {
@@ -296,7 +302,10 @@ const primaryChartOptions = computed(() => ({
         text: getMetricLabel(primaryMetric2.value)
       },
       labels: {
-        formatter: (value: number) => value.toFixed(1)
+        formatter: (value: number) => value.toFixed(1),
+        style: {
+          colors: [SERIES_COLORS[1]] // Color for Y-Axis 2
+        }
       }
     } : undefined
   ].filter(Boolean),
