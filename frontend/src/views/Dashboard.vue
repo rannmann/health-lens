@@ -81,6 +81,22 @@
             </label>
           </div>
         </div>
+
+        <!-- Trailing Average Controls -->
+        <div class="metric-controls__section">
+          <h3 class="metric-controls__title">Smoothing</h3>
+          <div class="trailing-average-controls" style="display: flex; align-items: center; gap: 1rem;">
+            <label class="toggle">
+              <input type="checkbox" v-model="showTrailingAverage">
+              <span class="toggle__label">Show Trailing Average</span>
+            </label>
+            <label v-if="showTrailingAverage" style="display: flex; align-items: center; gap: 0.5rem;">
+              <span>Window:</span>
+              <input type="number" min="2" max="60" v-model.number="trailingAverageWindow" class="input" style="width: 60px;">
+              <span>days</span>
+            </label>
+          </div>
+        </div>
       </div>
     </BaseCard>
 
@@ -162,6 +178,9 @@ const primaryMetric2 = ref('sleep')
 const showMedications = ref(true)
 const showSymptoms = ref(false)
 const showAllChanges = ref(false)
+// Trailing average state
+const showTrailingAverage = ref(false)
+const trailingAverageWindow = ref(10)
 
 // Add interfaces for our data types
 interface MetricDataPoint {
@@ -242,101 +261,117 @@ const chartCommonOptions = {
 
 const SERIES_COLORS = ['#008FFB', '#FEB019'];
 
+// Add colors for trailing average lines
+const TRAILING_AVG_COLORS = ['#006BB5', '#B25A14'];
+
 // Primary chart options
-const primaryChartOptions = computed(() => ({
-  ...chartCommonOptions,
-  colors: SERIES_COLORS,
-  chart: {
-    ...chartCommonOptions.chart,
-    type: 'line',
-    height: 400,
-    animations: {
-      enabled: true,
-      easing: 'easeinout',
-      dynamicAnimation: {
-        speed: 1000
-      }
-    }
-  },
-  title: {
-    text: 'Health Metrics Comparison',
-    align: 'left',
-    style: {
-      fontSize: '16px',
-      fontWeight: 600
-    }
-  },
-  xaxis: {
-    type: 'datetime',
-    labels: {
-      datetimeFormatter: {
-        year: 'yyyy',
-        month: "MMM 'yy",
-        day: 'dd MMM',
-        hour: 'HH:mm'
-      },
-      datetimeUTC: false,
-      style: {
-        colors: '#666'
-      }
-    },
-    tooltip: {
-      enabled: false
-    }
-  },
-  yaxis: [
-    {
-      title: {
-        text: getMetricLabel(primaryMetric1.value)
-      },
+const primaryChartOptions = computed(() => {
+  // Dynamically build yaxis array based on selected metrics
+  const yaxes: any[] = [];
+  
+  // Left axis (Y1)
+  if (primaryMetric1.value) {
+    // Build the list of series names for axis 0
+    const axis0Series = [
+      getMetricLabel(primaryMetric1.value),
+      // include trailing‑avg name if enabled
+      ...(showTrailingAverage.value
+        ? [ `${getMetricLabel(primaryMetric1.value)} (${trailingAverageWindow.value}-day Avg)` ]
+        : []
+      )
+    ];
+
+    yaxes.push({
+      title: { text: getMetricLabel(primaryMetric1.value) },
       labels: {
-        formatter: (value: number) => value.toFixed(1),
-        style: {
-          colors: [SERIES_COLORS[0]] // Color for Y-Axis 1
-        }
-      }
-    },
-    primaryMetric2.value ? {
-      opposite: true,
-      title: {
-        text: getMetricLabel(primaryMetric2.value)
+        formatter: (v: number) => v.toFixed(1),
+        style: { colors: [ SERIES_COLORS[0] ] }
       },
-      labels: {
-        formatter: (value: number) => value.toFixed(1),
-        style: {
-          colors: [SERIES_COLORS[1]] // Color for Y-Axis 2
-        }
-      }
-    } : undefined
-  ].filter(Boolean),
-  tooltip: {
-    shared: true,
-    x: {
-      format: 'MMM dd, yyyy'
-    }
-  },
-  stroke: {
-    curve: 'smooth',
-    width: 2
-  },
-  markers: {
-    size: 3,
-    strokeWidth: 0,
-    hover: {
-      size: 6
-    }
-  },
-  grid: {
-    show: true,
-    borderColor: '#f1f1f1',
-    strokeDashArray: 0,
-    position: 'back'
-  },
-  legend: {
-    position: 'top',
-    horizontalAlign: 'right'
+      // ← tie these exact series names to this axis
+      seriesName: axis0Series
+    });
   }
-}))
+
+  // Right axis (Y2)
+  if (primaryMetric2.value) {
+    const axis1Series = [
+      getMetricLabel(primaryMetric2.value),
+      ...(showTrailingAverage.value
+        ? [ `${getMetricLabel(primaryMetric2.value)} (${trailingAverageWindow.value}-day Avg)` ]
+        : []
+      )
+    ];
+
+    yaxes.push({
+      opposite: true,
+      title: { text: getMetricLabel(primaryMetric2.value) },
+      labels: {
+        formatter: (v: number) => v.toFixed(1),
+        style: { colors: [ SERIES_COLORS[1] ] }
+      },
+      seriesName: axis1Series
+    });
+  }
+  
+  return {
+    ...chartCommonOptions,
+    colors: [...SERIES_COLORS, ...TRAILING_AVG_COLORS],
+    chart: {
+      ...chartCommonOptions.chart,
+      type: 'line',
+      height: 400,
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        dynamicAnimation: { speed: 1000 }
+      }
+    },
+    title: {
+      text: 'Health Metrics Comparison',
+      align: 'left',
+      style: { fontSize: '16px', fontWeight: 600 }
+    },
+    xaxis: {
+      type: 'datetime',
+      labels: {
+        datetimeFormatter: {
+          year: 'yyyy',
+          month: "MMM 'yy",
+          day: 'dd MMM',
+          hour: 'HH:mm'
+        },
+        datetimeUTC: false,
+        style: { colors: '#666' }
+      },
+      tooltip: { enabled: false }
+    },
+    yaxis: yaxes,
+    tooltip: {
+      shared: true,
+      x: { format: 'MMM dd, yyyy' }
+    },
+    stroke: {
+      curve: 'smooth',
+      width: [2, 2, 2, 2],
+      dashArray: [0, 0, 6, 6]
+    },
+    markers: {
+      size: 3,
+      strokeWidth: 0,
+      hover: { size: 6 }
+    },
+    grid: {
+      show: true,
+      borderColor: '#f1f1f1',
+      strokeDashArray: 0,
+      position: 'back'
+    },
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right'
+    }
+  };
+})
 
 // Primary chart series
 const primaryChartSeries = ref<ChartSeries[]>([])
@@ -437,6 +472,31 @@ function getAnnotations() {
   return annotations
 }
 
+// Trailing average helper
+function computeTrailingAverage(data: ChartDataPoint[], window: number): ChartDataPoint[] {
+  if (!data.length || window < 2) return [];
+  const result: ChartDataPoint[] = [];
+  let sum = 0;
+  let count = 0;
+  const queue: number[] = [];
+  for (let i = 0; i < data.length; i++) {
+    const y = data[i].y;
+    if (y == null) {
+      result.push({ x: data[i].x, y: null });
+      continue;
+    }
+    queue.push(y);
+    sum += y;
+    count++;
+    if (queue.length > window) {
+      sum -= queue.shift()!;
+      count--;
+    }
+    result.push({ x: data[i].x, y: count === window ? +(sum / window).toFixed(2) : null });
+  }
+  return result;
+}
+
 // Data fetching
 const fetchData = async () => {
   await fetchMetricsData();
@@ -490,28 +550,44 @@ async function fetchMetricsData() {
     }
 
     // Transform data for ApexCharts
-    primaryChartSeries.value = [
-      {
+    const seriesArr: ChartSeries[] = [];
+    // Metric 1
+    if (primaryMetric1.value) {
+      const metric1 = METRIC_MAPPINGS[primaryMetric1.value as keyof typeof METRIC_MAPPINGS];
+      const series1 = {
         name: getMetricLabel(primaryMetric1.value),
         data: data.map((d: MetricDataPoint): ChartDataPoint => ({
           x: new Date(d.date).getTime(),
-          y: typeof d[metric1 as keyof MetricDataPoint] === 'number' ? 
-            d[metric1 as keyof MetricDataPoint] as number : 
-            null
+          y: typeof d[metric1 as keyof MetricDataPoint] === 'number' ? d[metric1 as keyof MetricDataPoint] as number : null
         })).filter((d: ChartDataPoint) => d.y != null)
-      },
-      {
+      };
+      seriesArr.push(series1);
+      if (showTrailingAverage.value) {
+        seriesArr.push({
+          name: getMetricLabel(primaryMetric1.value) + ` (${trailingAverageWindow.value}-day Avg)`,
+          data: computeTrailingAverage(series1.data, trailingAverageWindow.value)
+        });
+      }
+    }
+    // Metric 2
+    if (primaryMetric2.value) {
+      const metric2 = METRIC_MAPPINGS[primaryMetric2.value as keyof typeof METRIC_MAPPINGS];
+      const series2 = {
         name: getMetricLabel(primaryMetric2.value),
         data: data.map((d: MetricDataPoint): ChartDataPoint => ({
           x: new Date(d.date).getTime(),
-          y: metric2 === 'total_sleep' && typeof d[metric2] === 'number' ? 
-            (d[metric2] as number) / 60 : // Convert sleep minutes to hours
-            typeof d[metric2 as keyof MetricDataPoint] === 'number' ?
-              d[metric2 as keyof MetricDataPoint] as number :
-              null
+          y: metric2 === 'total_sleep' && typeof d[metric2] === 'number' ? (d[metric2] as number) / 60 : typeof d[metric2 as keyof MetricDataPoint] === 'number' ? d[metric2 as keyof MetricDataPoint] as number : null
         })).filter((d: ChartDataPoint) => d.y != null)
+      };
+      seriesArr.push(series2);
+      if (showTrailingAverage.value) {
+        seriesArr.push({
+          name: getMetricLabel(primaryMetric2.value) + ` (${trailingAverageWindow.value}-day Avg)`,
+          data: computeTrailingAverage(series2.data, trailingAverageWindow.value)
+        });
       }
-    ];
+    }
+    primaryChartSeries.value = seriesArr;
   } catch (error) {
     console.error('Error fetching metrics:', error);
     primaryChartSeries.value = [];
@@ -519,7 +595,9 @@ async function fetchMetricsData() {
 }
 
 // Watch for configuration changes
-watch([primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllChanges], () => {
+watch([
+  primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllChanges, showTrailingAverage, trailingAverageWindow
+], () => {
   fetchData()
 })
 
