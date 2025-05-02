@@ -289,7 +289,7 @@ const primaryChartOptions = computed(() => {
     yaxes.push({
       title: { text: getMetricLabel(primaryMetric1.value) },
       labels: {
-        formatter: (v: number) => v.toFixed(1),
+        formatter: (v: number) => (typeof v === 'number' && !isNaN(v) ? v.toFixed(1) : ''),
         style: { colors: [ SERIES_COLORS[0] ] }
       },
       // ← tie these exact series names to this axis
@@ -311,7 +311,7 @@ const primaryChartOptions = computed(() => {
       opposite: true,
       title: { text: getMetricLabel(primaryMetric2.value) },
       labels: {
-        formatter: (v: number) => v.toFixed(1),
+        formatter: (v: number) => (typeof v === 'number' && !isNaN(v) ? v.toFixed(1) : ''),
         style: { colors: [ SERIES_COLORS[1] ] }
       },
       seriesName: axis1Series
@@ -361,7 +361,7 @@ const primaryChartOptions = computed(() => {
       dashArray: [0, 0, 6, 6]
     },
     markers: {
-      size: 3,
+      size: dateRangeDays.value > 31 ? 0 : 3,
       strokeWidth: 0,
       hover: { size: 6 }
     },
@@ -634,6 +634,13 @@ onMounted(() => {
   
   fetchData();
 })
+
+const dateRangeDays = computed(() => {
+  const start = new Date(startDate.value);
+  const end = new Date(endDate.value);
+  // +1 to include both start and end dates
+  return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+});
 </script>
 
 <style scoped>
