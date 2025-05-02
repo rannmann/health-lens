@@ -33,12 +33,14 @@
                 <option value="heartRate">Resting Heart Rate (bpm)</option>
                 <option value="steps">Steps</option>
                 <option value="sleep">Sleep Duration (hrs)</option>
-                <option value="airQuality">Air Quality Score</option>
-                <option value="temperature">Temperature (°F)</option>
-                <option value="humidity">Humidity (%)</option>
-                <option value="co2">CO₂ (ppm)</option>
-                <option value="voc">VOC (ppb)</option>
-                <option value="pm25">PM2.5 (µg/m³)</option>
+                <option value="deepSleep">Deep Sleep (hrs)</option>
+                <option value="lightSleep">Light Sleep (hrs)</option>
+                <option value="remSleep">REM Sleep (hrs)</option>
+                <option value="wakeTime">Wake Time (min)</option>
+                <option value="azmTotal">Active Zone Minutes</option>
+                <option value="spo2">SpO₂ (%)</option>
+                <option value="breathingRate">Breathing Rate (br/min)</option>
+                <option value="temperature">Skin Temp Variation (°C)</option>
               </select>
             </div>
             <div class="metric-selector">
@@ -49,12 +51,14 @@
                 <option value="heartRate">Resting Heart Rate (bpm)</option>
                 <option value="steps">Steps</option>
                 <option value="sleep">Sleep Duration (hrs)</option>
-                <option value="airQuality">Air Quality Score</option>
-                <option value="temperature">Temperature (°F)</option>
-                <option value="humidity">Humidity (%)</option>
-                <option value="co2">CO₂ (ppm)</option>
-                <option value="voc">VOC (ppb)</option>
-                <option value="pm25">PM2.5 (µg/m³)</option>
+                <option value="deepSleep">Deep Sleep (hrs)</option>
+                <option value="lightSleep">Light Sleep (hrs)</option>
+                <option value="remSleep">REM Sleep (hrs)</option>
+                <option value="wakeTime">Wake Time (min)</option>
+                <option value="azmTotal">Active Zone Minutes</option>
+                <option value="spo2">SpO₂ (%)</option>
+                <option value="breathingRate">Breathing Rate (br/min)</option>
+                <option value="temperature">Skin Temp Variation (°C)</option>
               </select>
             </div>
           </div>
@@ -140,7 +144,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { format, subDays } from 'date-fns'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../stores/user'
 import BaseCard from '../components/BaseCard.vue'
+
+// Get user store
+const userStore = useUserStore()
+const router = useRouter()
 
 // Date range state
 const startDate = ref(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
@@ -148,10 +158,60 @@ const endDate = ref(format(new Date(), 'yyyy-MM-dd'))
 
 // Primary graph configuration
 const primaryMetric1 = ref('hrv')
-const primaryMetric2 = ref('steps')
+const primaryMetric2 = ref('sleep')
 const showMedications = ref(true)
 const showSymptoms = ref(false)
 const showAllChanges = ref(false)
+
+// Add interfaces for our data types
+interface MetricDataPoint {
+  date: string;
+  hrv_rmssd: number | null;
+  total_sleep: number | null;
+  resting_hr: number | null;
+  steps: number | null;
+  deep_sleep: number | null;
+  light_sleep: number | null;
+  rem_sleep: number | null;
+  wake_minutes: number | null;
+  azm_total: number | null;
+  azm_fatburn: number | null;
+  azm_cardio: number | null;
+  azm_peak: number | null;
+  spo2_avg: number | null;
+  breathing_rate: number | null;
+  skin_temp_delta: number | null;
+}
+
+interface ChartDataPoint {
+  x: number;
+  y: number | null;
+}
+
+// Add these interfaces after the existing interfaces
+interface ChartSeries {
+  name: string;
+  data: ChartDataPoint[];
+}
+
+// Add this after the interfaces
+const METRIC_MAPPINGS = {
+  hrv: 'hrv_rmssd',
+  sleep: 'total_sleep',
+  heartRate: 'resting_hr',
+  steps: 'steps',
+  deepSleep: 'deep_sleep',
+  lightSleep: 'light_sleep',
+  remSleep: 'rem_sleep',
+  wakeTime: 'wake_minutes',
+  azmTotal: 'azm_total',
+  azmFatBurn: 'azm_fatburn',
+  azmCardio: 'azm_cardio',
+  azmPeak: 'azm_peak',
+  spo2: 'spo2_avg',
+  breathingRate: 'breathing_rate',
+  temperature: 'skin_temp_delta'
+} as const;
 
 // Chart options
 const chartCommonOptions = {
@@ -183,38 +243,94 @@ const chartCommonOptions = {
 // Primary chart options
 const primaryChartOptions = computed(() => ({
   ...chartCommonOptions,
+  chart: {
+    ...chartCommonOptions.chart,
+    type: 'line',
+    height: 400,
+    animations: {
+      enabled: true,
+      easing: 'easeinout',
+      dynamicAnimation: {
+        speed: 1000
+      }
+    }
+  },
   title: {
-    text: 'Health Metrics Comparison'
+    text: 'Health Metrics Comparison',
+    align: 'left',
+    style: {
+      fontSize: '16px',
+      fontWeight: 600
+    }
+  },
+  xaxis: {
+    type: 'datetime',
+    labels: {
+      datetimeFormatter: {
+        year: 'yyyy',
+        month: "MMM 'yy",
+        day: 'dd MMM',
+        hour: 'HH:mm'
+      },
+      datetimeUTC: false,
+      style: {
+        colors: '#666'
+      }
+    },
+    tooltip: {
+      enabled: false
+    }
   },
   yaxis: [
     {
       title: {
         text: getMetricLabel(primaryMetric1.value)
+      },
+      labels: {
+        formatter: (value: number) => value.toFixed(1)
       }
     },
     primaryMetric2.value ? {
       opposite: true,
       title: {
         text: getMetricLabel(primaryMetric2.value)
+      },
+      labels: {
+        formatter: (value: number) => value.toFixed(1)
       }
     } : undefined
   ].filter(Boolean),
-  annotations: {
-    xaxis: getAnnotations()
+  tooltip: {
+    shared: true,
+    x: {
+      format: 'MMM dd, yyyy'
+    }
+  },
+  stroke: {
+    curve: 'smooth',
+    width: 2
+  },
+  markers: {
+    size: 3,
+    strokeWidth: 0,
+    hover: {
+      size: 6
+    }
+  },
+  grid: {
+    show: true,
+    borderColor: '#f1f1f1',
+    strokeDashArray: 0,
+    position: 'back'
+  },
+  legend: {
+    position: 'top',
+    horizontalAlign: 'right'
   }
 }))
 
 // Primary chart series
-const primaryChartSeries = ref([
-  {
-    name: getMetricLabel(primaryMetric1.value),
-    data: []
-  },
-  primaryMetric2.value ? {
-    name: getMetricLabel(primaryMetric2.value),
-    data: []
-  } : undefined
-].filter(Boolean))
+const primaryChartSeries = ref<ChartSeries[]>([])
 
 // Trend chart options
 const sleepTrendOptions = ref({
@@ -273,17 +389,22 @@ const airQualityTrendSeries = ref([{
 function getMetricLabel(metric: string): string {
   const labels: Record<string, string> = {
     hrv: 'HRV (ms)',
+    sleep: 'Sleep Duration (hrs)',
     heartRate: 'Resting Heart Rate (bpm)',
     steps: 'Steps',
-    sleep: 'Sleep Duration (hrs)',
-    airQuality: 'Air Quality Score',
-    temperature: 'Temperature (°F)',
-    humidity: 'Humidity (%)',
-    co2: 'CO₂ (ppm)',
-    voc: 'VOC (ppb)',
-    pm25: 'PM2.5 (µg/m³)'
-  }
-  return labels[metric] || metric
+    deepSleep: 'Deep Sleep (hrs)',
+    lightSleep: 'Light Sleep (hrs)',
+    remSleep: 'REM Sleep (hrs)',
+    wakeTime: 'Wake Time (min)',
+    azmTotal: 'Active Zone Minutes',
+    azmFatBurn: 'Fat Burn Minutes',
+    azmCardio: 'Cardio Minutes',
+    azmPeak: 'Peak Minutes',
+    spo2: 'SpO₂ (%)',
+    breathingRate: 'Breathing Rate (br/min)',
+    temperature: 'Skin Temp Variation (°C)'
+  };
+  return labels[metric] || metric;
 }
 
 function getAnnotations() {
@@ -309,89 +430,82 @@ function getAnnotations() {
 
 // Data fetching
 const fetchData = async () => {
-  try {
-    // Fetch primary metrics
-    const [metric1Data, metric2Data] = await Promise.all([
-      fetchMetricData(primaryMetric1.value),
-      primaryMetric2.value ? fetchMetricData(primaryMetric2.value) : Promise.resolve([])
-    ])
+  await fetchMetricsData();
+}
 
+async function fetchMetricsData() {
+  console.log('Fetching metrics data with userId:', userStore.userId);
+  
+  if (!userStore.userId) {
+    console.error('No user ID available, redirecting to settings');
+    router.push('/settings');
+    return;
+  }
+
+  try {
+    // Get the actual metric names from our mappings
+    const metric1 = METRIC_MAPPINGS[primaryMetric1.value as keyof typeof METRIC_MAPPINGS];
+    const metric2 = primaryMetric2.value ? METRIC_MAPPINGS[primaryMetric2.value as keyof typeof METRIC_MAPPINGS] : null;
+
+    if (!metric1) {
+      console.error('Invalid primary metric selection:', primaryMetric1.value);
+      return;
+    }
+
+    // Construct metrics parameter
+    const metricsParam = metric2 ? `${metric1},${metric2}` : metric1;
+    const url = `/api/health/${userStore.userId}/metrics`;
+    const params = new URLSearchParams({
+      startDate: startDate.value,
+      endDate: endDate.value,
+      metrics: metricsParam
+    });
+
+    console.log('Fetching metrics from URL:', `${url}?${params}`);
+
+    const response = await fetch(`${url}?${params}`);
+    console.log('Response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'No error details available' }));
+      console.error('Error response:', errorData);
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const { data } = await response.json();
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.warn('No data available for the selected date range');
+      primaryChartSeries.value = [];
+      return;
+    }
+
+    // Transform data for ApexCharts
     primaryChartSeries.value = [
       {
         name: getMetricLabel(primaryMetric1.value),
-        data: metric1Data
+        data: data.map((d: MetricDataPoint): ChartDataPoint => ({
+          x: new Date(d.date).getTime(),
+          y: typeof d[metric1 as keyof MetricDataPoint] === 'number' ? 
+            d[metric1 as keyof MetricDataPoint] as number : 
+            null
+        })).filter((d: ChartDataPoint) => d.y != null)
       },
-      ...(metric2Data.length ? [{
+      {
         name: getMetricLabel(primaryMetric2.value),
-        data: metric2Data
-      }] : [])
-    ]
-
-    // Fetch trend data
-    await fetchTrendData()
+        data: data.map((d: MetricDataPoint): ChartDataPoint => ({
+          x: new Date(d.date).getTime(),
+          y: metric2 === 'total_sleep' && typeof d[metric2] === 'number' ? 
+            (d[metric2] as number) / 60 : // Convert sleep minutes to hours
+            typeof d[metric2 as keyof MetricDataPoint] === 'number' ?
+              d[metric2 as keyof MetricDataPoint] as number :
+              null
+        })).filter((d: ChartDataPoint) => d.y != null)
+      }
+    ];
   } catch (error) {
-    console.error('Error fetching data:', error)
-  }
-}
-
-async function fetchMetricData(metric: string) {
-  const endpoint = getMetricEndpoint(metric)
-  const response = await fetch(`${endpoint}?start=${startDate.value}&end=${endDate.value}`)
-  if (!response.ok) return []
-  
-  const data = await response.json()
-  return data.map((d: any) => ({
-    x: new Date(d.timestamp || d.date).getTime(),
-    y: d.value || d[metric]
-  }))
-}
-
-function getMetricEndpoint(metric: string): string {
-  const endpoints: Record<string, string> = {
-    hrv: '/api/fitbit/hrv',
-    heartRate: '/api/fitbit/heart-rate',
-    steps: '/api/fitbit/steps',
-    sleep: '/api/fitbit/sleep',
-    airQuality: '/api/awair/air-quality',
-    temperature: '/api/awair/temperature',
-    humidity: '/api/awair/humidity',
-    co2: '/api/awair/co2',
-    voc: '/api/awair/voc',
-    pm25: '/api/awair/pm25'
-  }
-  return endpoints[metric] || ''
-}
-
-async function fetchTrendData() {
-  // Fetch sleep data
-  const sleepResponse = await fetch(`/api/fitbit/sleep?start=${startDate.value}&end=${endDate.value}`)
-  if (sleepResponse.ok) {
-    const sleepData = await sleepResponse.json()
-    sleepTrendSeries.value = [
-      { name: 'Deep Sleep', data: sleepData.map((d: any) => ({ x: new Date(d.date).getTime(), y: d.deepSleep / 3600 })) },
-      { name: 'Light Sleep', data: sleepData.map((d: any) => ({ x: new Date(d.date).getTime(), y: d.lightSleep / 3600 })) },
-      { name: 'REM', data: sleepData.map((d: any) => ({ x: new Date(d.date).getTime(), y: d.remSleep / 3600 })) }
-    ]
-  }
-
-  // Fetch activity data
-  const activityResponse = await fetch(`/api/fitbit/steps?start=${startDate.value}&end=${endDate.value}`)
-  if (activityResponse.ok) {
-    const activityData = await activityResponse.json()
-    activityTrendSeries.value[0].data = activityData.map((d: any) => ({
-      x: new Date(d.date).getTime(),
-      y: d.steps
-    }))
-  }
-
-  // Fetch air quality data
-  const airQualityResponse = await fetch(`/api/awair/air-quality?start=${startDate.value}&end=${endDate.value}`)
-  if (airQualityResponse.ok) {
-    const airQualityData = await airQualityResponse.json()
-    airQualityTrendSeries.value[0].data = airQualityData.map((d: any) => ({
-      x: new Date(d.timestamp).getTime(),
-      y: d.score
-    }))
+    console.error('Error fetching metrics:', error);
+    primaryChartSeries.value = [];
   }
 }
 
@@ -401,7 +515,11 @@ watch([primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllCha
 })
 
 onMounted(() => {
-  fetchData()
+  // Set initial metrics
+  primaryMetric1.value = 'hrv';
+  primaryMetric2.value = 'sleep';
+  
+  fetchData();
 })
 </script>
 
