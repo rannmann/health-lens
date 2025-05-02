@@ -9,13 +9,13 @@ const navItems = [
 </script>
 
 <template>
-  <nav class="mt-4 flex flex-wrap gap-2">
+  <nav class="app-nav">
     <router-link
       v-for="item in navItems"
       :key="item.path"
       :to="item.path"
-      class="text-white no-underline px-3 py-2 rounded-md transition-colors duration-200 hover:bg-primary-hover"
-      :class="{ 'bg-success': $route.path === item.path }"
+      class="nav-link"
+      :class="{ 'nav-link--active': $route.path === item.path }"
     >
       {{ item.label }}
     </router-link>
@@ -23,23 +23,28 @@ const navItems = [
 </template>
 
 <style scoped>
-.nav {
-  margin-top: 1rem;
+.app-nav {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .nav-link {
-  color: white;
+  color: var(--text-on-primary);
   text-decoration: none;
-  margin-right: 1rem;
-  padding: 0.5rem;
-  border-radius: 4px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-medium);
+  transition: background-color 0.2s ease;
+  background-color: var(--primary-500);
 }
 
 .nav-link:hover {
-  background-color: var(--primary-hover);
+  background-color: var(--primary-400);
 }
 
-.nav-link.router-link-active {
-  background-color: var(--success-color);
+.nav-link--active {
+  background-color: var(--primary-300);
 }
 </style> 

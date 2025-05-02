@@ -2,16 +2,26 @@
   <div class="medication-scheduler">
     <!-- Step 1: Basic Info -->
     <div class="step" v-if="currentStep === 1">
-      <h3>Medication Details</h3>
+      <h3 class="step__title">Medication Details</h3>
       <div class="form-group">
-        <label>Medication Name</label>
-        <input v-model="medication.name" type="text" placeholder="Enter medication name" />
+        <label class="form-label">Medication Name</label>
+        <input 
+          v-model="medication.name" 
+          type="text" 
+          placeholder="Enter medication name"
+          class="input"
+        />
       </div>
       <div class="form-group">
-        <label>Dose Amount</label>
+        <label class="form-label">Dose Amount</label>
         <div class="dose-input">
-          <input v-model="dose.amount" type="number" step="0.01" />
-          <select v-model="dose.unit">
+          <input 
+            v-model="dose.amount" 
+            type="number" 
+            step="0.01"
+            class="input dose-input__amount" 
+          />
+          <select v-model="dose.unit" class="input dose-input__unit">
             <option value="mg">mg</option>
             <option value="mcg">mcg</option>
             <option value="ml">ml</option>
@@ -20,8 +30,8 @@
         </div>
       </div>
       <div class="form-group">
-        <label>How do you take this medication?</label>
-        <select v-model="dose.route">
+        <label class="form-label">How do you take this medication?</label>
+        <select v-model="dose.route" class="input">
           <option value="oral">By mouth</option>
           <option value="injection">Injection</option>
           <option value="topical">On skin</option>
@@ -32,7 +42,7 @@
 
     <!-- Step 2: Frequency Pattern -->
     <div class="step" v-if="currentStep === 2">
-      <h3>How often do you take this medication?</h3>
+      <h3 class="step__title">How often do you take this medication?</h3>
       
       <!-- Quick Patterns -->
       <div class="quick-patterns">
@@ -54,9 +64,9 @@
         </BaseButton>
       </div>
 
-      <!-- Once Daily Time Selection (if applicable) -->
+      <!-- Once Daily Time Selection -->
       <div v-if="isOnceDailySelected && !showCustomIntervalModal" class="time-selection">
-        <h4>General time of day (optional)</h4>
+        <h4 class="time-selection__title">General time of day (optional)</h4>
         <div class="time-chips">
           <div 
             v-for="time in [
@@ -78,8 +88,9 @@
 
       <!-- Custom Schedule -->
       <div class="custom-schedule" v-if="schedule.type === 'custom' && showCustomIntervalModal">
-        <div class="frequency-type">
-          <select v-model="schedule.type">
+        <div class="form-group">
+          <label class="form-label">Frequency Type</label>
+          <select v-model="schedule.type" class="input">
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
@@ -89,7 +100,7 @@
 
         <!-- Daily Times -->
         <div class="times-of-day">
-          <h4>Times of Day</h4>
+          <h4 class="times-of-day__title">Times of Day</h4>
           <div class="time-chips">
             <div 
               v-for="time in commonTimes" 
@@ -102,12 +113,18 @@
               <span class="time-detail">{{ formatTime(time) }}</span>
             </div>
           </div>
-          <button @click="showCustomTimeModal = true">+ Add Custom Time</button>
+          <BaseButton 
+            variant="secondary"
+            size="small"
+            @click="showCustomTimeModal = true"
+          >
+            + Add Custom Time
+          </BaseButton>
         </div>
 
         <!-- Weekly/Monthly Options -->
         <div v-if="isWeeklySchedule && !showCustomIntervalModal" class="day-selector">
-          <h4>Which days of the week?</h4>
+          <h4 class="day-selector__title">Which days of the week?</h4>
           <div class="day-chips">
             <div 
               v-for="day in daysOfWeek" 
@@ -125,18 +142,11 @@
 
     <!-- Step 3: Review -->
     <div class="step" v-if="currentStep === 3">
-      <h3>Review Schedule</h3>
+      <h3 class="step__title">Review Schedule</h3>
       <div class="schedule-summary">
-        <h4>{{ medication.name }}</h4>
-        <p class="dose-summary">{{ formatDose(dose) }}</p>
-        <p class="schedule-text">{{ formatSchedule(schedule) }}</p>
-        
-        <div class="schedule-timeline">
-          <!-- Visual timeline of doses throughout day/week -->
-          <div class="timeline-visualization">
-            <!-- Render timeline based on schedule -->
-          </div>
-        </div>
+        <h4 class="schedule-summary__title">{{ medication.name }}</h4>
+        <p class="schedule-summary__dose">{{ formatDose(dose) }}</p>
+        <p class="schedule-summary__schedule">{{ formatSchedule(schedule) }}</p>
       </div>
     </div>
 
@@ -161,68 +171,55 @@
       >Save Schedule</BaseButton>
     </div>
 
-    <!-- Custom Time Modal -->
-    <modal v-if="showCustomTimeModal">
-      <div class="custom-time-modal">
-        <h4>Add Custom Time</h4>
-        <div class="time-input">
+    <!-- Modals -->
+    <modal v-if="showCustomTimeModal" class="modal">
+      <div class="modal__content">
+        <h4 class="modal__title">Add Custom Time</h4>
+        <div class="form-group">
           <input 
             type="time" 
             v-model="customTime.time"
+            class="input"
           />
           <input 
             type="text" 
             v-model="customTime.label"
             placeholder="Label (e.g., 'With lunch')"
+            class="input"
           />
         </div>
-        <div class="modal-actions">
-          <button @click="addCustomTime">Add</button>
-          <button @click="showCustomTimeModal = false">Cancel</button>
+        <div class="modal__actions">
+          <BaseButton @click="addCustomTime" variant="primary">Add</BaseButton>
+          <BaseButton @click="showCustomTimeModal = false" variant="secondary">Cancel</BaseButton>
         </div>
       </div>
     </modal>
 
-    <!-- Custom Interval Modal -->
-    <modal v-if="showCustomIntervalModal">
-      <div class="custom-interval-modal">
-        <h4>Custom Interval</h4>
-        <div class="interval-input">
-          <div class="form-group">
-            <label>Take every</label>
-            <div class="interval-controls">
-              <input 
-                type="number" 
-                v-model="customInterval.value"
-                min="1"
-                class="interval-value"
-              />
-              <select v-model="customInterval.unit">
-                <option value="days">days</option>
-                <option value="weeks">weeks</option>
-                <option value="months">months</option>
-              </select>
-            </div>
+    <modal v-if="showCustomIntervalModal" class="modal">
+      <div class="modal__content">
+        <h4 class="modal__title">Custom Interval</h4>
+        <div class="form-group">
+          <label class="form-label">Take every</label>
+          <div class="interval-input">
+            <input 
+              type="number" 
+              v-model="customInterval.value"
+              min="1"
+              class="input interval-input__value"
+            />
+            <select v-model="customInterval.unit" class="input interval-input__unit">
+              <option value="days">days</option>
+              <option value="weeks">weeks</option>
+              <option value="months">months</option>
+            </select>
           </div>
         </div>
-        <div class="modal-actions">
+        <div class="modal__actions">
           <BaseButton @click="applyCustomInterval" variant="primary">Apply</BaseButton>
           <BaseButton @click="showCustomIntervalModal = false" variant="secondary">Cancel</BaseButton>
         </div>
       </div>
     </modal>
-
-    <!-- Custom Schedule Summary -->
-    <div v-if="schedule.type === 'custom' && !showCustomIntervalModal" class="custom-schedule-summary">
-      <p class="schedule-text">{{ formatSchedule(schedule) }}</p>
-      <BaseButton 
-        variant="secondary" 
-        size="small"
-        @click="showCustomIntervalModal = true"
-      >
-        Edit Schedule
-      </BaseButton>
-    </div>
   </div>
 </template>
 
@@ -483,180 +480,188 @@ const isWeeklySchedule = computed(() => schedule.value.type === 'weekly');
 
 <style scoped>
 .medication-scheduler {
-  max-width: 600px;
+  max-width: var(--container-md);
   margin: 0 auto;
-  padding: 1rem;
 }
 
 .step {
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-8);
+}
+
+.step__title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
+}
+
+.form-label {
+  display: block;
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.dose-input {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.dose-input__amount {
+  width: 120px;
+}
+
+.dose-input__unit {
+  width: 100px;
 }
 
 .quick-patterns {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-6);
 }
 
-.quick-patterns :deep(.base-button) {
-  background-color: white;
+.time-selection {
+  margin-top: var(--space-6);
 }
 
-.quick-patterns :deep(.base-button.active) {
-  background-color: #3b82f6;
-  color: white;
-  border-color: #2563eb;
+.time-selection__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
 }
 
-.quick-patterns :deep(.base-button.active:hover) {
-  background-color: #2563eb;
-}
-
-.time-chips {
+.time-chips,
+.day-chips {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
 }
 
-.time-chip {
-  padding: 0.5rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
+.time-chip,
+.day-chip {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
-  background: white;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
 }
 
-.time-chip.active {
-  background: #3b82f6;
+.time-chip.active,
+.day-chip.active {
+  background: var(--primary-500);
   color: white;
-  border-color: #2563eb;
+  border-color: var(--primary-600);
 }
 
 .time-detail {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   opacity: 0.8;
+  margin-left: var(--space-2);
 }
 
-.day-chips {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+.help-text {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
 }
 
-.day-chip {
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e2e8f0;
-  border-radius: 50%;
-  cursor: pointer;
+.times-of-day,
+.day-selector {
+  margin-top: var(--space-6);
 }
 
-.day-chip.active {
-  background: #3b82f6;
-  color: white;
+.times-of-day__title,
+.day-selector__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
 }
 
 .schedule-summary {
-  padding: 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
+  padding: var(--space-4);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.schedule-summary__title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.schedule-summary__dose {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.schedule-summary__schedule {
+  color: var(--text-primary);
 }
 
 .step-navigation {
   display: flex;
   justify-content: space-between;
-  margin-top: 2rem;
+  margin-top: var(--space-8);
 }
 
-.custom-time-modal {
-  padding: 1rem;
-}
-
-.time-input {
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  gap: 1rem;
-  margin: 1rem 0;
+  align-items: center;
+  justify-content: center;
 }
 
-.modal-actions {
+.modal__content {
+  background: var(--surface-primary);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal__title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.modal__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
 }
 
 .interval-input {
-  margin: 1rem 0;
-}
-
-.interval-controls {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   align-items: center;
 }
 
-.interval-value {
-  width: 4rem;
-  padding: 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem;
+.interval-input__value {
+  width: 80px;
 }
 
-.help-text {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-top: 0.5rem;
-}
-
-.custom-interval-modal {
-  padding: 1.5rem;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-.interval-controls {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-top: 0.5rem;
-}
-
-.interval-value {
-  width: 4rem;
-  padding: 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem;
-}
-
-.custom-schedule-summary {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: #f8fafc;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.custom-schedule-summary .schedule-text {
-  margin: 0;
-  font-weight: 500;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
+.interval-input__unit {
+  width: 120px;
 }
 </style> 

@@ -4,26 +4,56 @@ import AppNavigation from '../components/AppNavigation.vue';
 </script>
 
 <template>
-  <div class="flex flex-col min-h-screen bg-gray-50">
-    <header class="bg-primary text-white p-4 shadow-md">
-      <div class="max-w-7xl mx-auto">
-        <h1 class="text-xl font-bold">HealthLens</h1>
+  <div class="app-layout">
+    <header class="app-header">
+      <div class="container">
+        <h1 class="text-2xl font-semibold">HealthLens</h1>
         <AppNavigation />
       </div>
     </header>
 
-    <main class="flex-1 p-8 max-w-7xl mx-auto w-full">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
+    <main class="app-main">
+      <div class="container">
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
+      </div>
     </main>
 
-    <footer class="bg-primary text-white text-center p-4 shadow-md">
-      <div class="max-w-7xl mx-auto">
-        <p>&copy; 2024 HealthLens. All data is stored locally.</p>
+    <footer class="app-footer">
+      <div class="container">
+        <p class="text-sm">&copy; {{ new Date().getFullYear() }} HealthLens. All data is stored locally.</p>
       </div>
     </footer>
   </div>
-</template> 
+</template>
+
+<style>
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-primary);
+}
+
+.app-header {
+  background-color: var(--primary-600);
+  color: var(--text-on-primary);
+  padding: var(--space-4) 0;
+  box-shadow: var(--shadow-md);
+}
+
+.app-main {
+  flex: 1;
+  padding: var(--space-8) 0;
+}
+
+.app-footer {
+  background-color: var(--primary-800);
+  color: var(--text-on-primary);
+  padding: var(--space-4) 0;
+  box-shadow: var(--shadow-lg);
+}
+</style> 

@@ -1,251 +1,238 @@
 <template>
   <div class="settings">
-    <h1>Settings</h1>
+    <h1 class="settings__title">Settings</h1>
     
-    <div class="settings-section">
-      <h2>Data Sources</h2>
+    <section class="settings__section">
+      <h2 class="settings__section-title">Data Sources</h2>
       
       <!-- Fitbit Settings -->
-      <div class="settings-card">
-        <div class="settings-header">
-          <h3>Fitbit</h3>
-          <div v-if="isLoading" class="loading-spinner"></div>
-          <span v-else :class="['status', { 'connected': fitbitConnected }]">
+      <BaseCard
+        title="Fitbit"
+        :loading="isLoading"
+      >
+        <template #actions>
+          <span :class="['status-badge', { 'status-badge--connected': fitbitConnected }]">
             {{ fitbitConnected ? 'Connected' : 'Not Connected' }}
           </span>
-        </div>
-        <div class="settings-content">
-          <div v-if="isLoading" class="loading-content">
-            <div class="loading-placeholder"></div>
-            <div class="loading-placeholder"></div>
-            <div class="loading-placeholder"></div>
-          </div>
+        </template>
+
+        <div class="connection-info">
+          <template v-if="!fitbitConnected">
+            <p>Connect your Fitbit account to sync health data including:</p>
+            <ul class="feature-list">
+              <li>Heart rate and HRV</li>
+              <li>Sleep stages and duration</li>
+              <li>Steps and activity</li>
+              <li>SpO₂ and breathing rate</li>
+            </ul>
+          </template>
           <template v-else>
-            <div class="connection-info">
-              <p v-if="!fitbitConnected">
-                Connect your Fitbit account to sync health data including:
-              </p>
-              <ul v-if="!fitbitConnected" class="feature-list">
-                <li>Heart rate and HRV</li>
-                <li>Sleep stages and duration</li>
-                <li>Steps and activity</li>
-                <li>SpO₂ and breathing rate</li>
-              </ul>
-              <div v-else>
-                <p>Last synced: {{ formatDate(fitbitLastSync) }}</p>
-                <div class="sync-actions">
-                  <button @click="syncFitbit" :disabled="isSyncing || isBackfilling">
-                    {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
-                  </button>
-                  <button @click="runBackfill" :disabled="isSyncing || isBackfilling" class="secondary-button">
-                    {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="settings-actions">
-              <button 
-                v-if="!fitbitConnected" 
-                @click="connectFitbit" 
-                :disabled="isConnecting"
-                class="connect-button"
-              >
-                {{ isConnecting ? 'Connecting...' : 'Connect Fitbit' }}
+            <p class="text-secondary">Last synced: {{ formatDate(fitbitLastSync) }}</p>
+            <div class="button-group">
+              <button class="button button--primary" @click="syncFitbit" :disabled="isSyncing || isBackfilling">
+                {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
               </button>
-              <button 
-                v-else 
-                @click="disconnectFitbit" 
-                :disabled="isConnecting"
-                class="disconnect-button"
-              >
-                Disconnect
+              <button class="button button--secondary" @click="runBackfill" :disabled="isSyncing || isBackfilling">
+                {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
               </button>
-              <a v-if="!fitbitConnected" 
-                 href="https://dev.fitbit.com/apps" 
-                 target="_blank" 
-                 class="help-link">
-                How to get Fitbit API access
-              </a>
             </div>
           </template>
         </div>
-      </div>
+
+        <div class="settings-actions">
+          <button 
+            v-if="!fitbitConnected" 
+            @click="connectFitbit" 
+            :disabled="isConnecting"
+            class="button button--success"
+          >
+            {{ isConnecting ? 'Connecting...' : 'Connect Fitbit' }}
+          </button>
+          <button 
+            v-else 
+            @click="disconnectFitbit" 
+            :disabled="isConnecting"
+            class="button button--error"
+          >
+            Disconnect
+          </button>
+          <a v-if="!fitbitConnected" 
+             href="https://dev.fitbit.com/apps" 
+             target="_blank" 
+             class="help-link">
+            How to get Fitbit API access
+          </a>
+        </div>
+      </BaseCard>
 
       <!-- Awair Settings -->
-      <div class="settings-card">
-        <div class="settings-header">
-          <h3>Awair</h3>
-          <div v-if="isLoading" class="loading-spinner"></div>
-          <span v-else :class="['status', { 'connected': awairConnected }]">
+      <BaseCard
+        title="Awair"
+        :loading="isLoading"
+      >
+        <template #actions>
+          <span :class="['status-badge', { 'status-badge--connected': awairConnected }]">
             {{ awairConnected ? 'Connected' : 'Not Connected' }}
           </span>
-        </div>
-        <div class="settings-content">
-          <div v-if="isLoading" class="loading-content">
-            <div class="loading-placeholder"></div>
-            <div class="loading-placeholder"></div>
-            <div class="loading-placeholder"></div>
-          </div>
-          <template v-else>
-            <div class="connection-info">
-              <p v-if="!awairConnected">
-                Connect your Awair device to track indoor air quality metrics:
-              </p>
-              <ul v-if="!awairConnected" class="feature-list">
-                <li>Air quality score</li>
-                <li>PM2.5 and PM10 levels</li>
-                <li>CO₂ and VOC levels</li>
-                <li>Temperature and humidity</li>
-              </ul>
-              <div class="form-group">
-                <label for="awairToken">Access Token</label>
-                <div class="input-with-help">
-                  <input 
-                    type="password" 
-                    id="awairToken" 
-                    v-model="awairToken"
-                    placeholder="Enter your Awair API token"
-                  />
-                  <a href="https://developer.getawair.com/console/access-token" 
-                     target="_blank" 
-                     class="help-link">
-                    Get your token
-                  </a>
-                </div>
-              </div>
-              <div v-if="awairDevices.length > 0" class="devices-list">
-                <h4>Connected Devices</h4>
-                <ul>
-                  <li v-for="device in awairDevices" :key="device.id">
-                    {{ device.name }} ({{ device.id }})
-                  </li>
-                </ul>
-              </div>
-            </div>
-            <div class="settings-actions">
-              <button @click="saveAwairSettings" :disabled="isSaving">
-                {{ isSaving ? 'Saving...' : 'Save Settings' }}
-              </button>
-            </div>
-          </template>
-        </div>
-      </div>
+        </template>
 
-      <!-- Weather Settings -->
-      <div class="settings-card">
-        <div class="settings-header">
-          <h3>Weather</h3>
-          <div v-if="isLoading" class="loading-spinner"></div>
-          <span v-else :class="['status', { 'connected': weatherConnected }]">
-            {{ weatherConnected ? 'Connected' : 'Not Connected' }}
-          </span>
-        </div>
-        <div class="settings-content">
-          <div v-if="isLoading" class="loading-content">
-            <div class="loading-placeholder"></div>
-            <div class="loading-placeholder"></div>
-            <div class="loading-placeholder"></div>
-          </div>
-          <template v-else>
-            <div class="connection-info">
-              <p v-if="!weatherConnected">
-                Add weather data to correlate with your health metrics:
-              </p>
-              <ul v-if="!weatherConnected" class="feature-list">
-                <li>Temperature (high, low, average)</li>
-                <li>Humidity and air pressure</li>
-                <li>Wind speed</li>
-                <li>Air Quality Index (AQI)</li>
-              </ul>
-              <div v-else>
-                <div class="sync-status">
-                  <h4>Last Sync</h4>
-                  <ul>
-                    <li>
-                      Open-Meteo: 
-                      {{ formatDate(weatherSyncStatus?.openmeteo?.lastSync) }}
-                      <span v-if="weatherSyncStatus?.openmeteo?.error" class="error-text">
-                        ({{ weatherSyncStatus.openmeteo.error }})
-                      </span>
-                    </li>
-                    <li>
-                      OpenWeatherMap: 
-                      {{ formatDate(weatherSyncStatus?.openweathermap?.lastSync) }}
-                      <span v-if="weatherSyncStatus?.openweathermap?.error" class="error-text">
-                        ({{ weatherSyncStatus.openweathermap.error }})
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-                <div class="sync-actions">
-                  <button @click="syncWeather" :disabled="isSyncing">
-                    {{ isSyncing ? 'Syncing...' : 'Sync Weather Data' }}
-                  </button>
-                  <button @click="runWeatherBackfill" :disabled="isSyncing" class="secondary-button">
-                    {{ isSyncing ? 'Running Backfill...' : 'Run Full Backfill' }}
-                  </button>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="zipCode">ZIP Code</label>
-                <input 
-                  type="text" 
-                  id="zipCode" 
-                  v-model="zipCode"
-                  placeholder="Enter your ZIP code"
-                />
-              </div>
-              <div class="form-group">
-                <label for="weatherApiKey">OpenWeatherMap API Key (for AQI data)</label>
-                <div class="input-with-help">
-                  <input 
-                    type="password" 
-                    id="weatherApiKey" 
-                    v-model="weatherApiKey"
-                    placeholder="Enter your OpenWeatherMap API key"
-                  />
-                  <a href="https://openweathermap.org/api" 
-                     target="_blank" 
-                     class="help-link">
-                    Get an API key
-                  </a>
-                </div>
-                <p class="help-text">
-                  Note: OpenWeatherMap API key is only needed for Air Quality Index (AQI) data.
-                  Temperature and other weather data is provided by Open-Meteo for free.
-                </p>
-              </div>
-            </div>
-            <div class="settings-actions">
-              <button @click="saveWeatherSettings" :disabled="isSaving">
-                {{ isSaving ? 'Saving...' : 'Save Settings' }}
-              </button>
-            </div>
-          </template>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h2>Data Management</h2>
-      <div class="settings-card">
-        <div class="settings-content">
-          <div class="connection-info">
-            <p>Export your health data for backup or analysis:</p>
+        <div class="connection-info">
+          <template v-if="!awairConnected">
+            <p>Connect your Awair device to track indoor air quality metrics:</p>
             <ul class="feature-list">
-              <li>JSON format for programmatic analysis</li>
-              <li>CSV format for spreadsheet applications</li>
-              <li>Includes all health metrics and annotations</li>
-              <li>Selectable date range for export</li>
+              <li>Air quality score</li>
+              <li>PM2.5 and PM10 levels</li>
+              <li>CO₂ and VOC levels</li>
+              <li>Temperature and humidity</li>
+            </ul>
+          </template>
+
+          <div class="form-group">
+            <label for="awairToken">Access Token</label>
+            <div class="input-group">
+              <input 
+                type="password" 
+                id="awairToken" 
+                v-model="awairToken"
+                class="input"
+                placeholder="Enter your Awair API token"
+              />
+              <a href="https://developer.getawair.com/console/access-token" 
+                 target="_blank" 
+                 class="help-link">
+                Get your token
+              </a>
+            </div>
+          </div>
+
+          <div v-if="awairDevices.length > 0" class="devices-list">
+            <h4 class="text-lg font-medium">Connected Devices</h4>
+            <ul class="devices-grid">
+              <li v-for="device in awairDevices" :key="device.id" class="device-item">
+                {{ device.name }} ({{ device.id }})
+              </li>
             </ul>
           </div>
-          <div class="export-options">
-            <button @click="exportData('json')">Export as JSON</button>
-            <button @click="exportData('csv')">Export as CSV</button>
+        </div>
+
+        <div class="settings-actions">
+          <button class="button button--primary" @click="saveAwairSettings" :disabled="isSaving">
+            {{ isSaving ? 'Saving...' : 'Save Settings' }}
+          </button>
+        </div>
+      </BaseCard>
+
+      <!-- Weather Settings -->
+      <BaseCard
+        title="Weather"
+        :loading="isLoading"
+      >
+        <template #actions>
+          <span :class="['status-badge', { 'status-badge--connected': weatherConnected }]">
+            {{ weatherConnected ? 'Connected' : 'Not Connected' }}
+          </span>
+        </template>
+
+        <div class="connection-info">
+          <template v-if="!weatherConnected">
+            <p>Add weather data to correlate with your health metrics:</p>
+            <ul class="feature-list">
+              <li>Temperature (high, low, average)</li>
+              <li>Humidity and air pressure</li>
+              <li>Wind speed</li>
+              <li>Air Quality Index (AQI)</li>
+            </ul>
+          </template>
+          <template v-else>
+            <div class="sync-status">
+              <h4 class="text-lg font-medium">Last Sync</h4>
+              <ul class="status-list">
+                <li>
+                  Open-Meteo: 
+                  {{ formatDate(weatherSyncStatus?.openmeteo?.lastSync) }}
+                  <span v-if="weatherSyncStatus?.openmeteo?.error" class="error-text">
+                    ({{ weatherSyncStatus.openmeteo.error }})
+                  </span>
+                </li>
+                <li>
+                  OpenWeatherMap: 
+                  {{ formatDate(weatherSyncStatus?.openweathermap?.lastSync) }}
+                  <span v-if="weatherSyncStatus?.openweathermap?.error" class="error-text">
+                    ({{ weatherSyncStatus.openweathermap.error }})
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <div class="button-group">
+              <button class="button button--primary" @click="syncWeather" :disabled="isSyncing">
+                {{ isSyncing ? 'Syncing...' : 'Sync Weather Data' }}
+              </button>
+              <button class="button button--secondary" @click="runWeatherBackfill" :disabled="isSyncing">
+                {{ isSyncing ? 'Running Backfill...' : 'Run Full Backfill' }}
+              </button>
+            </div>
+          </template>
+
+          <div class="form-group">
+            <label for="zipCode">ZIP Code</label>
+            <input 
+              type="text" 
+              id="zipCode" 
+              v-model="zipCode"
+              class="input"
+              placeholder="Enter your ZIP code"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="weatherApiKey">OpenWeatherMap API Key (for AQI data)</label>
+            <div class="input-group">
+              <input 
+                type="password" 
+                id="weatherApiKey" 
+                v-model="weatherApiKey"
+                class="input"
+                placeholder="Enter your OpenWeatherMap API key"
+              />
+              <a href="https://openweathermap.org/api" 
+                 target="_blank" 
+                 class="help-link">
+                Get an API key
+              </a>
+            </div>
+            <p class="help-text">
+              Note: OpenWeatherMap API key is only needed for Air Quality Index (AQI) data.
+              Temperature and other weather data is provided by Open-Meteo for free.
+            </p>
           </div>
         </div>
-      </div>
-    </div>
+
+        <div class="settings-actions">
+          <button class="button button--primary" @click="saveWeatherSettings" :disabled="isSaving">
+            {{ isSaving ? 'Saving...' : 'Save Settings' }}
+          </button>
+        </div>
+      </BaseCard>
+    </section>
+
+    <section class="settings__section">
+      <h2 class="settings__section-title">Data Management</h2>
+      <BaseCard>
+        <div class="connection-info">
+          <p>Export your health data for backup or analysis:</p>
+          <ul class="feature-list">
+            <li>JSON format for programmatic analysis</li>
+            <li>CSV format for spreadsheet applications</li>
+            <li>Includes all health metrics and annotations</li>
+            <li>Selectable date range for export</li>
+          </ul>
+        </div>
+        <div class="button-group">
+          <button class="button button--primary" @click="exportData('json')">Export as JSON</button>
+          <button class="button button--secondary" @click="exportData('csv')">Export as CSV</button>
+        </div>
+      </BaseCard>
+    </section>
   </div>
 </template>
 
@@ -253,6 +240,7 @@
 import { ref, onMounted } from 'vue';
 import { format } from 'date-fns';
 import axios from 'axios';
+import BaseCard from '../components/BaseCard.vue';
 
 const fitbitConnected = ref(false);
 const fitbitLastSync = ref('');
@@ -586,104 +574,85 @@ function convertToCSV(data: any) {
 
 <style scoped>
 .settings {
-  padding: 2rem;
-  max-width: 800px;
+  max-width: var(--container-md);
   margin: 0 auto;
 }
 
-.settings-section {
-  margin-bottom: 3rem;
+.settings__title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
 }
 
-.settings-section h2 {
-  color: #2c3e50;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
+.settings__section {
+  margin-bottom: var(--space-12);
 }
 
-.settings-card {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.settings__section-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
 }
 
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.settings-header h3 {
-  margin: 0;
-  color: #2c3e50;
-  font-size: 1.2rem;
-}
-
-.status {
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  background-color: #e74c3c;
+.status-badge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  background-color: var(--error-500);
   color: white;
 }
 
-.status.connected {
-  background-color: #2ecc71;
-}
-
-.settings-content {
-  margin-top: 1rem;
+.status-badge--connected {
+  background-color: var(--success-500);
 }
 
 .connection-info {
-  margin-bottom: 1.5rem;
+  color: var(--text-primary);
 }
 
 .feature-list {
   list-style: none;
   padding: 0;
-  margin: 0.5rem 0 1rem;
+  margin: var(--space-4) 0;
 }
 
 .feature-list li {
-  padding: 0.25rem 0;
-  color: #34495e;
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) 0;
+  color: var(--text-secondary);
 }
 
 .feature-list li::before {
   content: "•";
-  color: #3498db;
-  margin-right: 0.5rem;
+  color: var(--primary-500);
+  margin-right: var(--space-2);
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin: var(--space-6) 0;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #34495e;
-  font-weight: 500;
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
 }
 
-.input-with-help {
+.input-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.input-with-help input {
-  flex: 1;
+  gap: var(--space-2);
 }
 
 .help-link {
-  color: #3498db;
+  color: var(--primary-500);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 
@@ -691,176 +660,68 @@ function convertToCSV(data: any) {
   text-decoration: underline;
 }
 
-input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
+.help-text {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
 }
 
 .devices-list {
-  margin: 1rem 0;
+  margin: var(--space-6) 0;
+  padding: var(--space-4);
+  background-color: var(--surface-secondary);
+  border-radius: var(--radius-lg);
 }
 
-.devices-list h4 {
-  margin: 0 0 0.5rem 0;
-  color: #34495e;
-  font-size: 1rem;
+.devices-grid {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
-.devices-list ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.device-item {
+  padding: var(--space-2) var(--space-3);
+  background-color: white;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
 }
 
-.devices-list li {
-  padding: 0.5rem;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
+.button-group {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 
 .settings-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  background-color: #3498db;
-  color: white;
-  font-size: 1rem;
-}
-
-button:hover {
-  background-color: #2980b9;
-}
-
-button:disabled {
-  background-color: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.connect-button {
-  background-color: #2ecc71;
-}
-
-.connect-button:hover {
-  background-color: #27ae60;
-}
-
-.disconnect-button {
-  background-color: #e74c3c;
-}
-
-.disconnect-button:hover {
-  background-color: #c0392b;
-}
-
-.export-options {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.export-options button {
-  flex: 1;
-}
-
-.sync-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.secondary-button {
-  background-color: #95a5a6;
-}
-
-.secondary-button:hover {
-  background-color: #7f8c8d;
-}
-
-.loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.loading-content {
-  padding: 1rem 0;
-}
-
-.loading-placeholder {
-  height: 1rem;
-  background: #f3f3f3;
-  border-radius: 4px;
-  margin-bottom: 0.75rem;
-  animation: pulse 1.5s infinite;
-}
-
-.loading-placeholder:nth-child(2) {
-  width: 80%;
-}
-
-.loading-placeholder:nth-child(3) {
-  width: 60%;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-light);
 }
 
 .sync-status {
-  margin: 1rem 0;
-  padding: 1rem;
-  background-color: #f8f9fa;
-  border-radius: 4px;
+  padding: var(--space-4);
+  background-color: var(--surface-secondary);
+  border-radius: var(--radius-lg);
+  margin: var(--space-4) 0;
 }
 
-.sync-status h4 {
-  margin: 0 0 0.5rem 0;
-  color: #34495e;
-  font-size: 1rem;
-}
-
-.sync-status ul {
+.status-list {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: var(--space-3) 0 0;
 }
 
-.sync-status li {
-  padding: 0.25rem 0;
-  color: #34495e;
+.status-list li {
+  padding: var(--space-2) 0;
+  color: var(--text-secondary);
 }
 
 .error-text {
-  color: #e74c3c;
-  font-size: 0.9rem;
-  margin-left: 0.5rem;
-}
-
-.help-text {
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  margin-top: 0.5rem;
+  color: var(--error-500);
+  font-size: var(--text-sm);
+  margin-left: var(--space-2);
 }
 </style> 

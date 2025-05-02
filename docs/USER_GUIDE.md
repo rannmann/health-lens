@@ -21,12 +21,35 @@ HealthLens helps you track and analyze your health data by:
 
 #### Adding Medications
 1. Navigate to the Medications view
-2. Click "Add Medication"
-3. Enter:
-   - Medication name
-   - Starting dose
-   - Frequency (e.g., "once daily", "3x/week")
-   - Optional notes about initial effects
+2. Click "Add New Medication"
+3. Follow the step-by-step process:
+   
+   **Step 1: Basic Information**
+   - Enter medication name
+   - Specify dose amount and unit
+   - Select administration route (by mouth, injection, etc.)
+
+   **Step 2: Schedule**
+   - Choose from common patterns (once daily, twice daily, etc.)
+   - Or create a custom schedule:
+     - Select specific times of day
+     - Choose days of the week
+     - Set custom intervals
+   - For flexible timing, select general time of day (morning, afternoon, etc.)
+
+   **Step 3: Review**
+   - Verify medication details
+   - Confirm schedule
+   - Save the medication
+
+#### Managing Medications
+- View all medications in a card-based interface
+- Each medication card shows:
+  - Current dose
+  - Schedule details
+  - Quick actions (edit/delete)
+- Edit any medication by clicking the edit button
+- Delete medications with confirmation
 
 #### Recording Changes
 1. Find the medication in your list

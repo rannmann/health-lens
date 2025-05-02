@@ -19,7 +19,10 @@ export interface FrequencySchedule {
 }
 
 export interface Medication {
+  id: string;
   name: string;
+  dose: MedicationDose;
+  schedule: FrequencySchedule;
   notes?: string;
 }
 

@@ -28,7 +28,7 @@ HealthLens is built as a local-first application with a Node.js backend and Vue.
 #### Technology Stack
 - Vue 3 with TypeScript
 - Vite for build tooling
-- Tailwind CSS for styling
+- Design system with CSS custom properties
 - Pinia for state management
 - Vue Router for navigation
 - ApexCharts for data visualization
@@ -43,7 +43,9 @@ frontend/
 │   ├── layouts/    # Page layouts
 │   ├── router/     # Route definitions
 │   ├── stores/     # Pinia state management
-│   ├── styles/     # Global styles
+│   ├── styles/     # Global styles and design system
+│   │   ├── base/   # Base styles and resets
+│   │   └── theme/  # Design tokens and variables
 │   ├── types/      # TypeScript definitions
 │   └── views/      # Page components
 ```
@@ -69,8 +71,14 @@ The `health.ts` Pinia store manages:
 - Loading states and error handling
 
 #### Components
-Current implementation:
-- `AppNavigation.vue`: Main navigation component
+Core UI Components:
+- `BaseButton.vue`: Standard button component
+- `BaseCard.vue`: Card container component
+- `MedicationScheduler.vue`: Complex medication scheduling interface
+  - Multi-step form interface
+  - Flexible scheduling patterns
+  - Time and day selection
+  - Custom interval support
 
 Planned/Needed:
 - Reusable chart components
@@ -78,6 +86,15 @@ Planned/Needed:
 - Loading and error states
 - Data entry modals
 - Metric selection components
+
+#### Design System
+The application uses a comprehensive design system implemented through CSS custom properties:
+- Typography scale
+- Color system
+- Spacing scale
+- Component-specific tokens
+- Consistent interactive states
+- Accessibility considerations
 
 ### 2. Backend (Node.js + Express)
 

@@ -1,130 +1,146 @@
 <template>
   <div class="dashboard">
-    <h1>Health Dashboard</h1>
+    <h1 class="dashboard__title">Health Dashboard</h1>
     
-    <div class="date-range">
-      <input
-        type="date"
-        v-model="startDate"
-        @change="fetchData"
-      >
-      <span>to</span>
-      <input
-        type="date"
-        v-model="endDate"
-        @change="fetchData"
-      >
-    </div>
-
-    <!-- Primary Graph Configuration -->
-    <div class="graph-config">
-      <div class="config-section">
-        <h3>Primary Metrics</h3>
-        <div class="metric-selectors">
-          <div class="metric-selector">
-            <label>Y-Axis 1</label>
-            <select v-model="primaryMetric1">
-              <option value="hrv">HRV (ms)</option>
-              <option value="heartRate">Resting Heart Rate (bpm)</option>
-              <option value="steps">Steps</option>
-              <option value="sleep">Sleep Duration (hrs)</option>
-              <option value="airQuality">Air Quality Score</option>
-              <option value="temperature">Temperature (°F)</option>
-              <option value="humidity">Humidity (%)</option>
-              <option value="co2">CO₂ (ppm)</option>
-              <option value="voc">VOC (ppb)</option>
-              <option value="pm25">PM2.5 (µg/m³)</option>
-            </select>
-          </div>
-          <div class="metric-selector">
-            <label>Y-Axis 2</label>
-            <select v-model="primaryMetric2">
-              <option value="">None</option>
-              <option value="hrv">HRV (ms)</option>
-              <option value="heartRate">Resting Heart Rate (bpm)</option>
-              <option value="steps">Steps</option>
-              <option value="sleep">Sleep Duration (hrs)</option>
-              <option value="airQuality">Air Quality Score</option>
-              <option value="temperature">Temperature (°F)</option>
-              <option value="humidity">Humidity (%)</option>
-              <option value="co2">CO₂ (ppm)</option>
-              <option value="voc">VOC (ppb)</option>
-              <option value="pm25">PM2.5 (µg/m³)</option>
-            </select>
-          </div>
+    <BaseCard class="dashboard__controls">
+      <div class="date-range">
+        <label class="date-range__label">Date Range</label>
+        <div class="date-range__inputs">
+          <input
+            type="date"
+            v-model="startDate"
+            @change="fetchData"
+            class="input"
+          >
+          <span class="date-range__separator">to</span>
+          <input
+            type="date"
+            v-model="endDate"
+            @change="fetchData"
+            class="input"
+          >
         </div>
       </div>
 
-      <div class="config-section">
-        <h3>Annotations</h3>
-        <div class="annotation-toggles">
-          <label class="toggle">
-            <input type="checkbox" v-model="showMedications">
-            <span>Medication Changes</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" v-model="showSymptoms">
-            <span>Symptoms</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" v-model="showAllChanges">
-            <span>All Changes</span>
-          </label>
+      <div class="metric-controls">
+        <div class="metric-controls__section">
+          <h3 class="metric-controls__title">Primary Metrics</h3>
+          <div class="metric-selectors">
+            <div class="metric-selector">
+              <label class="metric-selector__label">Y-Axis 1</label>
+              <select v-model="primaryMetric1" class="input">
+                <option value="hrv">HRV (ms)</option>
+                <option value="heartRate">Resting Heart Rate (bpm)</option>
+                <option value="steps">Steps</option>
+                <option value="sleep">Sleep Duration (hrs)</option>
+                <option value="airQuality">Air Quality Score</option>
+                <option value="temperature">Temperature (°F)</option>
+                <option value="humidity">Humidity (%)</option>
+                <option value="co2">CO₂ (ppm)</option>
+                <option value="voc">VOC (ppb)</option>
+                <option value="pm25">PM2.5 (µg/m³)</option>
+              </select>
+            </div>
+            <div class="metric-selector">
+              <label class="metric-selector__label">Y-Axis 2</label>
+              <select v-model="primaryMetric2" class="input">
+                <option value="">None</option>
+                <option value="hrv">HRV (ms)</option>
+                <option value="heartRate">Resting Heart Rate (bpm)</option>
+                <option value="steps">Steps</option>
+                <option value="sleep">Sleep Duration (hrs)</option>
+                <option value="airQuality">Air Quality Score</option>
+                <option value="temperature">Temperature (°F)</option>
+                <option value="humidity">Humidity (%)</option>
+                <option value="co2">CO₂ (ppm)</option>
+                <option value="voc">VOC (ppb)</option>
+                <option value="pm25">PM2.5 (µg/m³)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-controls__section">
+          <h3 class="metric-controls__title">Annotations</h3>
+          <div class="annotation-toggles">
+            <label class="toggle">
+              <input type="checkbox" v-model="showMedications">
+              <span class="toggle__label">Medication Changes</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" v-model="showSymptoms">
+              <span class="toggle__label">Symptoms</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" v-model="showAllChanges">
+              <span class="toggle__label">All Changes</span>
+            </label>
+          </div>
         </div>
       </div>
-    </div>
+    </BaseCard>
 
     <!-- Primary Graph -->
-    <div class="primary-graph">
-      <apexchart
-        type="line"
-        height="400"
-        :options="primaryChartOptions"
-        :series="primaryChartSeries"
-      />
-    </div>
+    <BaseCard class="dashboard__primary-chart">
+      <template #title>Health Metrics Comparison</template>
+      <div class="chart-container">
+        <apexchart
+          type="line"
+          height="400"
+          :options="primaryChartOptions"
+          :series="primaryChartSeries"
+        />
+      </div>
+    </BaseCard>
 
     <!-- Trend Graphs -->
-    <div class="trends-section">
-      <h2>Trend Overview</h2>
+    <section class="dashboard__trends">
+      <h2 class="dashboard__section-title">Trend Overview</h2>
       <div class="trends-grid">
-        <div class="trend-card">
-          <h3>Sleep Quality</h3>
-          <apexchart
-            type="bar"
-            height="200"
-            :options="sleepTrendOptions"
-            :series="sleepTrendSeries"
-          />
-        </div>
+        <BaseCard>
+          <template #title>Sleep Quality</template>
+          <div class="chart-container">
+            <apexchart
+              type="bar"
+              height="200"
+              :options="sleepTrendOptions"
+              :series="sleepTrendSeries"
+            />
+          </div>
+        </BaseCard>
         
-        <div class="trend-card">
-          <h3>Activity</h3>
-          <apexchart
-            type="bar"
-            height="200"
-            :options="activityTrendOptions"
-            :series="activityTrendSeries"
-          />
-        </div>
+        <BaseCard>
+          <template #title>Activity</template>
+          <div class="chart-container">
+            <apexchart
+              type="bar"
+              height="200"
+              :options="activityTrendOptions"
+              :series="activityTrendSeries"
+            />
+          </div>
+        </BaseCard>
         
-        <div class="trend-card">
-          <h3>Air Quality</h3>
-          <apexchart
-            type="line"
-            height="200"
-            :options="airQualityTrendOptions"
-            :series="airQualityTrendSeries"
-          />
-        </div>
+        <BaseCard>
+          <template #title>Air Quality</template>
+          <div class="chart-container">
+            <apexchart
+              type="line"
+              height="200"
+              :options="airQualityTrendOptions"
+              :series="airQualityTrendSeries"
+            />
+          </div>
+        </BaseCard>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { format, subDays } from 'date-fns'
+import BaseCard from '../components/BaseCard.vue'
 
 // Date range state
 const startDate = ref(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
@@ -391,109 +407,135 @@ onMounted(() => {
 
 <style scoped>
 .dashboard {
-  padding: 2rem;
-  max-width: 1200px;
+  max-width: var(--container-lg);
   margin: 0 auto;
 }
 
+.dashboard__title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
+}
+
+.dashboard__section-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
+}
+
+.dashboard__controls {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard__primary-chart {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard__trends {
+  margin-bottom: var(--space-8);
+}
+
 .date-range {
+  margin-bottom: var(--space-6);
+}
+
+.date-range__label {
+  display: block;
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.date-range__inputs {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: var(--space-4);
 }
 
-.date-range input {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.date-range__separator {
+  color: var(--text-secondary);
 }
 
-.graph-config {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+.metric-controls {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
-.config-section {
-  margin-bottom: 1.5rem;
+.metric-controls__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.config-section h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: #2c3e50;
+.metric-controls__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
 }
 
 .metric-selectors {
-  display: flex;
-  gap: 2rem;
+  display: grid;
+  gap: var(--space-4);
 }
 
-.metric-selector {
-  flex: 1;
-}
-
-.metric-selector label {
+.metric-selector__label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #34495e;
-}
-
-.metric-selector select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
 }
 
 .annotation-toggles {
   display: flex;
-  gap: 2rem;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .toggle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   cursor: pointer;
 }
 
-.primary-graph {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-}
-
-.trends-section {
-  margin-top: 2rem;
-}
-
-.trends-section h2 {
-  color: #2c3e50;
-  margin-bottom: 1.5rem;
+.toggle__label {
+  color: var(--text-secondary);
 }
 
 .trends-grid {
   display: grid;
+  gap: var(--space-6);
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
 }
 
-.trend-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.chart-container {
+  margin: calc(var(--space-4) * -1);
 }
 
-.trend-card h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: #2c3e50;
+/* Override ApexCharts styles to match our theme */
+:deep(.apexcharts-title-text) {
+  fill: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-lg) !important;
+  font-weight: var(--font-medium) !important;
+}
+
+:deep(.apexcharts-text) {
+  fill: var(--text-secondary) !important;
+  font-family: var(--font-sans) !important;
+}
+
+:deep(.apexcharts-grid-borders line) {
+  stroke: var(--border-light) !important;
+}
+
+:deep(.apexcharts-tooltip) {
+  background: white !important;
+  border: 1px solid var(--border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 </style> 

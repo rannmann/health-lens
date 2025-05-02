@@ -1,55 +1,67 @@
 <template>
   <div class="medications">
-    <h1>Medications</h1>
+    <h1 class="medications__title">Medications</h1>
     
-    <div v-if="!isAddingMedication" class="add-button-container">
-      <button @click="isAddingMedication = true" class="add-button">
+    <div v-if="!isAddingMedication" class="medications__actions">
+      <button @click="isAddingMedication = true" class="button button--success">
         Add New Medication
       </button>
     </div>
 
-    <div v-else class="medication-form">
-      <div class="form-header">
-        <h2>Add Medication</h2>
-        <button @click="isAddingMedication = false" class="close-button">×</button>
-      </div>
+    <BaseCard v-else>
+      <template #title>Add Medication</template>
+      <template #actions>
+        <button @click="isAddingMedication = false" class="button button--icon">
+          <span aria-hidden="true">×</span>
+        </button>
+      </template>
       <MedicationScheduler @save="handleMedicationSave" />
-    </div>
+    </BaseCard>
     
-    <div class="medication-list">
-      <h2>Current Medications</h2>
+    <BaseCard>
+      <template #title>Current Medications</template>
       <div v-if="medications.length === 0" class="empty-state">
         No medications added yet.
       </div>
-      <div v-else class="medication-cards">
-        <div
+      <div v-else class="medications-grid">
+        <BaseCard
           v-for="medication in medications"
           :key="medication.id"
+          :title="medication.name"
           class="medication-card"
         >
-          <div class="medication-header">
-            <h3>{{ medication.name }}</h3>
-            <div class="medication-actions">
-              <button @click="editMedication(medication)">Edit</button>
-              <button @click="deleteMedication(medication.id)" class="delete-button">Delete</button>
-            </div>
-          </div>
+          <template #actions>
+            <button @click="editMedication(medication)" class="button button--icon button--secondary">
+              Edit
+            </button>
+            <button @click="deleteMedication(medication.id)" class="button button--icon button--error">
+              Delete
+            </button>
+          </template>
           <div class="medication-details">
-            <p><strong>Dose:</strong> {{ formatDose(medication.dose) }}</p>
-            <p><strong>Schedule:</strong> {{ formatSchedule(medication.schedule) }}</p>
-            <p v-if="medication.notes">
-              <strong>Notes:</strong> {{ medication.notes }}
+            <p class="medication-detail">
+              <span class="medication-detail__label">Dose:</span>
+              <span class="medication-detail__value">{{ formatDose(medication.dose) }}</span>
+            </p>
+            <p class="medication-detail">
+              <span class="medication-detail__label">Schedule:</span>
+              <span class="medication-detail__value">{{ formatSchedule(medication.schedule) }}</span>
+            </p>
+            <p v-if="medication.notes" class="medication-detail">
+              <span class="medication-detail__label">Notes:</span>
+              <span class="medication-detail__value">{{ medication.notes }}</span>
             </p>
           </div>
-        </div>
+        </BaseCard>
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import BaseCard from '../components/BaseCard.vue';
 import MedicationScheduler from '../components/MedicationScheduler.vue';
 import type { 
   Medication, 
@@ -149,129 +161,69 @@ onMounted(() => {
 
 <style scoped>
 .medications {
-  padding: 2rem;
-  max-width: 1200px;
+  max-width: var(--container-lg);
   margin: 0 auto;
 }
 
-.add-button-container {
-  margin-bottom: 2rem;
+.medications__title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
+}
+
+.medications__actions {
+  margin-bottom: var(--space-6);
   text-align: right;
-}
-
-.add-button {
-  background: #4CAF50;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.add-button:hover {
-  background: #45a049;
-}
-
-.medication-form {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  position: relative;
-}
-
-.form-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  line-height: 1;
-  color: #666;
-}
-
-.close-button:hover {
-  color: #000;
-}
-
-.medication-list {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .empty-state {
   text-align: center;
-  padding: 2rem;
-  color: #666;
+  padding: var(--space-8);
+  color: var(--text-tertiary);
+  font-size: var(--text-lg);
 }
 
-.medication-cards {
+.medications-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .medication-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 1rem;
-  background: #f8fafc;
+  height: 100%;
 }
 
-.medication-header {
+.medication-details {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.medication-header h3 {
+.medication-detail {
   margin: 0;
-  color: #1a202c;
+  line-height: var(--leading-relaxed);
 }
 
-.medication-actions {
-  display: flex;
-  gap: 0.5rem;
+.medication-detail__label {
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-right: var(--space-2);
 }
 
-.medication-actions button {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.875rem;
-  border-radius: 4px;
-  cursor: pointer;
+.medication-detail__value {
+  color: var(--text-primary);
 }
 
-.medication-actions button:not(.delete-button) {
-  background: #3b82f6;
-  color: white;
-  border: none;
-}
-
-.delete-button {
-  background: #ef4444;
-  color: white;
-  border: none;
-}
-
-.medication-details p {
-  margin: 0.5rem 0;
-  color: #4a5568;
-}
-
-.medication-details strong {
-  color: #2d3748;
+.button--icon {
+  width: var(--space-8);
+  height: var(--space-8);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+  line-height: 1;
 }
 </style> 
