@@ -71,7 +71,6 @@ The `health.ts` Pinia store manages:
 #### Components
 Current implementation:
 - `AppNavigation.vue`: Main navigation component
-- `HelloWorld.vue`: Example component
 
 Planned/Needed:
 - Reusable chart components

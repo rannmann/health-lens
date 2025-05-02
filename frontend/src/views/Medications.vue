@@ -2,69 +2,18 @@
   <div class="medications">
     <h1>Medications</h1>
     
-    <div class="medication-form">
-      <h2>Add Medication</h2>
-      <form @submit.prevent="addMedication">
-        <div class="form-group">
-          <label for="name">Name</label>
-          <input
-            id="name"
-            v-model="newMedication.name"
-            type="text"
-            required
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="dosage">Dosage</label>
-          <input
-            id="dosage"
-            v-model="newMedication.dosage"
-            type="text"
-            required
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="frequency">Frequency</label>
-          <input
-            id="frequency"
-            v-model="newMedication.frequency"
-            type="text"
-            required
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="startDate">Start Date</label>
-          <input
-            id="startDate"
-            v-model="newMedication.startDate"
-            type="date"
-            required
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="endDate">End Date (Optional)</label>
-          <input
-            id="endDate"
-            v-model="newMedication.endDate"
-            type="date"
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="notes">Notes</label>
-          <textarea
-            id="notes"
-            v-model="newMedication.notes"
-            rows="3"
-          ></textarea>
-        </div>
-        
-        <button type="submit">Add Medication</button>
-      </form>
+    <div v-if="!isAddingMedication" class="add-button-container">
+      <button @click="isAddingMedication = true" class="add-button">
+        Add New Medication
+      </button>
+    </div>
+
+    <div v-else class="medication-form">
+      <div class="form-header">
+        <h2>Add Medication</h2>
+        <button @click="isAddingMedication = false" class="close-button">×</button>
+      </div>
+      <MedicationScheduler @save="handleMedicationSave" />
     </div>
     
     <div class="medication-list">
@@ -82,16 +31,12 @@
             <h3>{{ medication.name }}</h3>
             <div class="medication-actions">
               <button @click="editMedication(medication)">Edit</button>
-              <button @click="deleteMedication(medication.id)">Delete</button>
+              <button @click="deleteMedication(medication.id)" class="delete-button">Delete</button>
             </div>
           </div>
           <div class="medication-details">
-            <p><strong>Dosage:</strong> {{ medication.dosage }}</p>
-            <p><strong>Frequency:</strong> {{ medication.frequency }}</p>
-            <p><strong>Start Date:</strong> {{ formatDate(medication.startDate) }}</p>
-            <p v-if="medication.endDate">
-              <strong>End Date:</strong> {{ formatDate(medication.endDate) }}
-            </p>
+            <p><strong>Dose:</strong> {{ formatDose(medication.dose) }}</p>
+            <p><strong>Schedule:</strong> {{ formatSchedule(medication.schedule) }}</p>
             <p v-if="medication.notes">
               <strong>Notes:</strong> {{ medication.notes }}
             </p>
@@ -103,95 +48,103 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import MedicationScheduler from '../components/MedicationScheduler.vue';
+import type { 
+  Medication, 
+  MedicationDose, 
+  FrequencySchedule,
+  MedicationSchedule 
+} from '../types/medication';
 
-interface Medication {
-  id: string
-  name: string
-  dosage: string
-  frequency: string
-  startDate: string
-  endDate?: string
-  notes?: string
-}
-
-const router = useRouter()
-const medications = ref<Medication[]>([])
-const newMedication = ref<Omit<Medication, 'id'>>({
-  name: '',
-  dosage: '',
-  frequency: '',
-  startDate: '',
-  endDate: '',
-  notes: ''
-})
+const router = useRouter();
+const medications = ref<Medication[]>([]);
+const isAddingMedication = ref(false);
 
 const fetchMedications = async () => {
   try {
-    const response = await fetch('/api/medications')
+    const response = await fetch('/api/medications');
     if (response.ok) {
-      medications.value = await response.json()
+      medications.value = await response.json();
     }
   } catch (error) {
-    console.error('Error fetching medications:', error)
+    console.error('Error fetching medications:', error);
   }
-}
+};
 
-const addMedication = async () => {
+const handleMedicationSave = async (medicationSchedule: MedicationSchedule) => {
   try {
     const response = await fetch('/api/medications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(newMedication.value)
-    })
+      body: JSON.stringify(medicationSchedule)
+    });
     
     if (response.ok) {
-      await fetchMedications()
-      // Reset form
-      newMedication.value = {
-        name: '',
-        dosage: '',
-        frequency: '',
-        startDate: '',
-        endDate: '',
-        notes: ''
-      }
+      await fetchMedications();
+      isAddingMedication.value = false;
     }
   } catch (error) {
-    console.error('Error adding medication:', error)
+    console.error('Error adding medication:', error);
   }
-}
+};
 
 const editMedication = (medication: Medication) => {
-  router.push(`/medications/${medication.id}`)
-}
+  router.push(`/medications/${medication.id}`);
+};
 
 const deleteMedication = async (id: string) => {
   if (confirm('Are you sure you want to delete this medication?')) {
     try {
       const response = await fetch(`/api/medications/${id}`, {
         method: 'DELETE'
-      })
+      });
       
       if (response.ok) {
-        await fetchMedications()
+        await fetchMedications();
       }
     } catch (error) {
-      console.error('Error deleting medication:', error)
+      console.error('Error deleting medication:', error);
     }
   }
-}
+};
 
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString()
-}
+const formatDose = (dose: MedicationDose) => {
+  return `${dose.amount} ${dose.unit} ${dose.route}`;
+};
+
+const formatSchedule = (schedule: FrequencySchedule) => {
+  const times = schedule.timesOfDay
+    .map(t => t.label || formatTime(t))
+    .join(', ');
+    
+  switch (schedule.type) {
+    case 'daily':
+      return `Daily at ${times}`;
+    case 'weekly':
+      const days = schedule.daysOfWeek
+        ?.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d])
+        .join(', ');
+      return `${days} at ${times}`;
+    case 'monthly':
+      const monthDays = schedule.daysOfMonth?.join(', ');
+      return `Monthly on day(s) ${monthDays} at ${times}`;
+    default:
+      return schedule.customPattern || 'Custom schedule';
+  }
+};
+
+const formatTime = (time: { hour: number; minute: number }) => {
+  return new Date(0, 0, 0, time.hour, time.minute)
+    .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
 
 onMounted(() => {
-  fetchMedications()
-})
+  fetchMedications();
+});
 </script>
 
 <style scoped>
@@ -201,45 +154,54 @@ onMounted(() => {
   margin: 0 auto;
 }
 
+.add-button-container {
+  margin-bottom: 2rem;
+  text-align: right;
+}
+
+.add-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.add-button:hover {
+  background: #45a049;
+}
+
 .medication-form {
   background: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
+  position: relative;
 }
 
-.form-group {
-  margin-bottom: 1rem;
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
 
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-}
-
-input,
-textarea {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-button {
-  background: #4CAF50;
-  color: white;
+.close-button {
+  background: none;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  font-size: 1.5rem;
   cursor: pointer;
-  font-size: 1rem;
+  padding: 0.5rem;
+  line-height: 1;
+  color: #666;
 }
 
-button:hover {
-  background: #45a049;
+.close-button:hover {
+  color: #000;
 }
 
 .medication-list {
@@ -262,9 +224,10 @@ button:hover {
 }
 
 .medication-card {
-  border: 1px solid #ddd;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 1rem;
+  background: #f8fafc;
 }
 
 .medication-header {
@@ -274,17 +237,41 @@ button:hover {
   margin-bottom: 1rem;
 }
 
+.medication-header h3 {
+  margin: 0;
+  color: #1a202c;
+}
+
 .medication-actions {
   display: flex;
   gap: 0.5rem;
 }
 
 .medication-actions button {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.75rem;
   font-size: 0.875rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.medication-actions button:not(.delete-button) {
+  background: #3b82f6;
+  color: white;
+  border: none;
+}
+
+.delete-button {
+  background: #ef4444;
+  color: white;
+  border: none;
 }
 
 .medication-details p {
   margin: 0.5rem 0;
+  color: #4a5568;
+}
+
+.medication-details strong {
+  color: #2d3748;
 }
 </style> 
