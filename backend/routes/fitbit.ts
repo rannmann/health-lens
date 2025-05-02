@@ -571,7 +571,7 @@ async function processBatchWithRateLimit(
 // Modify the backfill endpoint to use the enhanced rate limiting
 router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: Response) => {
     const { userId } = req.params;
-    const { startDate } = req.body;
+    const { startDate, endpoints, customEndDate } = req.body;
 
     if (!startDate) {
         return res.status(400).json({ error: 'Start date is required for backfill' });
@@ -588,7 +588,9 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
         res.json({ 
             message: 'Backfill process started', 
             userId,
-            startDate 
+            startDate,
+            endpoints: endpoints || Object.keys(ENDPOINT_CONFIGS),
+            customEndDate: customEndDate || null
         });
 
         const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
@@ -597,31 +599,32 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
             'Accept-Language': 'en_US'
         };
 
-        const endDate = format(addDays(new Date(), -1), 'yyyy-MM-dd');
+        // Use customEndDate if provided, otherwise yesterday
+        const endDate = customEndDate || format(addDays(new Date(), -1), 'yyyy-MM-dd');
 
-        // Process each endpoint with its specific constraints
-        for (const [endpointKey, config] of Object.entries(ENDPOINT_CONFIGS)) {
+        // Only process selected endpoints if provided
+        const endpointKeys = endpoints && Array.isArray(endpoints) && endpoints.length > 0
+            ? endpoints
+            : Object.keys(ENDPOINT_CONFIGS);
+
+        for (const endpointKey of endpointKeys) {
+            const config = ENDPOINT_CONFIGS[endpointKey];
+            if (!config) continue;
             try {
                 initProgress.run(userId, endpointKey, startDate, 'in_progress');
-                
                 let currentDate = new Date(endDate); // Start from most recent
                 const startDateTime = new Date(startDate);
                 let hasMoreData = true;
 
                 while (hasMoreData && currentDate >= startDateTime) {
-                    // Calculate the start date for this chunk
                     let chunkStartDate = addDays(currentDate, -(config.maxDays - 1));
                     if (chunkStartDate < startDateTime) {
                         chunkStartDate = startDateTime;
                     }
-
                     const url = `https://api.fitbit.com/1/user/${fitbit_user_id}/${config.path}/date/${format(chunkStartDate, 'yyyy-MM-dd')}/${format(currentDate, 'yyyy-MM-dd')}.json`;
-                    
                     try {
                         const data = await fetchWithRateLimit(url, headers, userId);
                         await processEndpointData(userId, endpointKey, data, format(chunkStartDate, 'yyyy-MM-dd'), format(currentDate, 'yyyy-MM-dd'));
-
-                        // Update progress
                         db.prepare(`
                             UPDATE fitbit_sync_progress 
                             SET last_synced_date = ?, 
@@ -629,8 +632,6 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
                                 updated_at = CURRENT_TIMESTAMP
                             WHERE user_id = ? AND endpoint = ?
                         `).run(format(currentDate, 'yyyy-MM-dd'), userId, endpointKey);
-
-                        // Check if we got any data
                         const hasData = data && (
                             data.activities?.length > 0 ||
                             data.sleep?.length > 0 ||
@@ -639,36 +640,25 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
                             data.temperature?.length > 0 ||
                             data['activities-active-zone-minutes']?.length > 0
                         );
-
-                        // If no data and we're beyond account creation, we can stop
-                        if (!hasData && currentDate < new Date('2009-01-01')) { // Fitbit founded in 2007
+                        if (!hasData && currentDate < new Date('2009-01-01')) {
                             hasMoreData = false;
                         }
-
                     } catch (error: any) {
                         if (error.response?.status === 429) {
-                            // Rate limit hit - wait and retry this chunk
                             continue;
                         }
                         throw error;
                     }
-
-                    // Move back in time
                     currentDate = addDays(chunkStartDate, -1);
                 }
-
-                // Mark endpoint as completed
                 db.prepare(`
                     UPDATE fitbit_sync_progress 
                     SET status = 'completed',
                         updated_at = CURRENT_TIMESTAMP
                     WHERE user_id = ? AND endpoint = ?
                 `).run(userId, endpointKey);
-
             } catch (error: any) {
                 console.error(`Error backfilling ${endpointKey}:`, error);
-                
-                // Update progress with error
                 db.prepare(`
                     UPDATE fitbit_sync_progress 
                     SET status = 'failed',
@@ -676,16 +666,13 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
                         updated_at = CURRENT_TIMESTAMP
                     WHERE user_id = ? AND endpoint = ?
                 `).run(error.message, userId, endpointKey);
-
                 if (config.required) {
                     throw error;
                 }
             }
         }
-
     } catch (error) {
         console.error('Backfill error:', error);
-        // Error will be reflected in the progress table
     }
 });
 

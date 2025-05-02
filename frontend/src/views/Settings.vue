@@ -27,14 +27,58 @@
             </ul>
           </template>
           <template v-else>
-            <p class="text-secondary">Last synced: {{ formatDate(fitbitLastSync) }}</p>
-            <div class="button-group">
-              <button class="button button--primary" @click="syncFitbit" :disabled="isSyncing || isBackfilling">
-                {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
-              </button>
-              <button class="button button--secondary" @click="runBackfill" :disabled="isSyncing || isBackfilling">
-                {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
-              </button>
+            <p class="text-secondary">Last synced: {{ lastSyncedDisplay }}</p>
+            <div class="fitbit-backfill-range">
+              <label class="fitbit-backfill-range__label" for="fitbitBackfillStart">Backfill Date Range</label>
+              <div class="fitbit-backfill-range__inputs">
+                <input
+                  type="date"
+                  id="fitbitBackfillStart"
+                  v-model="backfillStartDate"
+                  :max="today"
+                  class="input"
+                />
+                <span class="fitbit-backfill-range__separator">to</span>
+                <input
+                  type="date"
+                  id="fitbitBackfillEnd"
+                  v-model="backfillEndDate"
+                  :max="today"
+                  class="input"
+                />
+              </div>
+              <div class="button-group" style="margin-top: var(--space-4);">
+                <button class="button button--primary" @click="syncFitbit" :disabled="isSyncing || isBackfilling">
+                  {{ isSyncing ? 'Syncing...' : 'Sync Recent Data' }}
+                </button>
+                <button class="button button--secondary" @click="runBackfill" :disabled="isSyncing || isBackfilling">
+                  {{ isBackfilling ? 'Running Backfill...' : 'Run Full Backfill' }}
+                </button>
+                <button v-if="hasFailedEndpoints" class="button button--warning" @click="retryFailedEndpoints" :disabled="isSyncing || isBackfilling">
+                  Retry Failed Endpoints
+                </button>
+              </div>
+            </div>
+            <div class="backfill-progress-modal">
+              <h3>Fitbit Data Sync Status</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Status</th>
+                    <th>Last Synced</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="p in backfillProgress" :key="p.endpoint">
+                    <td>{{ p.endpoint }}</td>
+                    <td>{{ p.status }}</td>
+                    <td>{{ formatDateOnly(p.last_synced_date) }}</td>
+                    <td>{{ p.error || '' }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </template>
         </div>
@@ -237,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { format } from 'date-fns';
 import axios from 'axios';
 import BaseCard from '../components/BaseCard.vue';
@@ -256,6 +300,15 @@ const isSaving = ref(false);
 const isConnecting = ref(false);
 const isLoading = ref(true);
 
+const today = format(new Date(), 'yyyy-MM-dd');
+const defaultBackfillStart = format(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+const backfillStartDate = ref(defaultBackfillStart);
+const backfillEndDate = ref('');
+const backfillProgress = ref<Array<any>>([]);
+
+const hasFailedEndpoints = computed(() => backfillProgress.value.some(p => p.status === 'failed'));
+const failedEndpoints = computed(() => backfillProgress.value.filter(p => p.status === 'failed').map(p => p.endpoint));
+
 interface WeatherSyncStatus {
   [provider: string]: {
     lastSync: string;
@@ -265,9 +318,26 @@ interface WeatherSyncStatus {
 
 const weatherSyncStatus = ref<WeatherSyncStatus>();
 
+const lastSyncedDisplay = computed(() => {
+  if (!backfillProgress.value.length) return 'Never';
+  const maxDate = backfillProgress.value
+    .map(p => p.last_synced_date)
+    .filter(Boolean)
+    .sort()
+    .reverse()[0];
+  return maxDate ? formatDateOnly(maxDate) : 'Never';
+});
+
 function formatDate(dateString: string | undefined) {
   if (!dateString) return 'Never';
   return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+}
+
+function formatDateOnly(dateString: string | undefined) {
+  if (!dateString) return 'Never';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return 'Never';
+  return format(d, 'MMM d, yyyy');
 }
 
 async function connectFitbit() {
@@ -315,35 +385,61 @@ async function syncFitbit() {
 
 async function runBackfill() {
   isBackfilling.value = true;
+  backfillProgress.value = [];
   try {
     const userId = localStorage.getItem('userId');
-    // Start backfill from 1 year ago by default
-    const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    await axios.post(`/api/fitbit/backfill/${userId}`, { startDate });
-    
+    const startDate = backfillStartDate.value;
+    const customEndDate = backfillEndDate.value || undefined;
+    await axios.post(`/api/fitbit/backfill/${userId}`, { startDate, customEndDate });
     // Poll for backfill status
     const checkStatus = async () => {
       const response = await axios.get(`/api/fitbit/backfill-status/${userId}`);
       const { progress } = response.data;
-      
-      // Check if all endpoints are completed or failed
+      backfillProgress.value = progress;
       const isComplete = progress.every((p: any) => 
         p.status === 'completed' || p.status === 'failed'
       );
-      
       if (isComplete) {
         isBackfilling.value = false;
         fitbitLastSync.value = new Date().toISOString();
       } else {
-        setTimeout(checkStatus, 5000); // Check again in 5 seconds
+        setTimeout(checkStatus, 5000);
       }
     };
-    
-    setTimeout(checkStatus, 5000); // Start checking after 5 seconds
+    setTimeout(checkStatus, 5000);
   } catch (error) {
     console.error('Failed to run backfill:', error);
     alert('Failed to run backfill. Please try again.');
+    isBackfilling.value = false;
+  }
+}
+
+async function retryFailedEndpoints() {
+  isBackfilling.value = true;
+  try {
+    const userId = localStorage.getItem('userId');
+    const startDate = backfillStartDate.value;
+    const customEndDate = backfillEndDate.value || undefined;
+    await axios.post(`/api/fitbit/backfill/${userId}`, { startDate, customEndDate, endpoints: failedEndpoints.value });
+    // Poll for backfill status
+    const checkStatus = async () => {
+      const response = await axios.get(`/api/fitbit/backfill-status/${userId}`);
+      const { progress } = response.data;
+      backfillProgress.value = progress;
+      const isComplete = progress.every((p: any) => 
+        p.status === 'completed' || p.status === 'failed'
+      );
+      if (isComplete) {
+        isBackfilling.value = false;
+        fitbitLastSync.value = new Date().toISOString();
+      } else {
+        setTimeout(checkStatus, 5000);
+      }
+    };
+    setTimeout(checkStatus, 5000);
+  } catch (error) {
+    console.error('Failed to retry endpoints:', error);
+    alert('Failed to retry endpoints. Please try again.');
     isBackfilling.value = false;
   }
 }
@@ -421,14 +517,17 @@ onMounted(async () => {
     // Load Fitbit status
     const userId = localStorage.getItem('userId');
     if (userId) {
-      const [fitbitResponse, awairResponse, weatherResponse] = await Promise.all([
+      const [fitbitResponse, awairResponse, weatherResponse, backfillStatusResponse] = await Promise.all([
         axios.get('/api/fitbit/status', { params: { userId } }),
         axios.get('/api/awair/status', { params: { userId } }),
-        axios.get('/api/weather/status', { params: { userId } })
+        axios.get('/api/weather/status', { params: { userId } }),
+        axios.get(`/api/fitbit/backfill-status/${userId}`)
       ]);
 
       // Update Fitbit status
       fitbitConnected.value = fitbitResponse.data.connected;
+      // Always update progress table
+      backfillProgress.value = backfillStatusResponse.data.progress || [];
       if (fitbitResponse.data.lastSync) {
         fitbitLastSync.value = fitbitResponse.data.lastSync;
       }
@@ -723,5 +822,59 @@ function convertToCSV(data: any) {
   color: var(--error-500);
   font-size: var(--text-sm);
   margin-left: var(--space-2);
+}
+
+.backfill-progress-modal {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background-color: var(--surface-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.backfill-progress-modal h3 {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.backfill-progress-modal table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.backfill-progress-modal th,
+.backfill-progress-modal td {
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.backfill-progress-modal th {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.backfill-progress-modal td {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.fitbit-backfill-range {
+  margin: var(--space-6) 0;
+}
+.fitbit-backfill-range__label {
+  display: block;
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+.fitbit-backfill-range__inputs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.fitbit-backfill-range__separator {
+  color: var(--text-secondary);
 }
 </style> 
