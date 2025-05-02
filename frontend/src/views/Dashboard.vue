@@ -95,6 +95,10 @@
               <input type="number" min="2" max="60" v-model.number="trailingAverageWindow" class="input" style="width: 60px;">
               <span>days</span>
             </label>
+            <label v-if="showTrailingAverage" class="toggle">
+              <input type="checkbox" v-model="showFilterOutliers">
+              <span class="toggle__label">Filter Outliers (±2σ)</span>
+            </label>
           </div>
         </div>
       </div>
@@ -181,6 +185,7 @@ const showAllChanges = ref(false)
 // Trailing average state
 const showTrailingAverage = ref(false)
 const trailingAverageWindow = ref(10)
+const showFilterOutliers = ref(false)
 
 // Add interfaces for our data types
 interface MetricDataPoint {
@@ -474,27 +479,42 @@ function getAnnotations() {
 
 // Trailing average helper
 function computeTrailingAverage(data: ChartDataPoint[], window: number): ChartDataPoint[] {
-  if (!data.length || window < 2) return [];
-  const result: ChartDataPoint[] = [];
-  let sum = 0;
-  let count = 0;
-  const queue: number[] = [];
-  for (let i = 0; i < data.length; i++) {
-    const y = data[i].y;
-    if (y == null) {
-      result.push({ x: data[i].x, y: null });
-      continue;
-    }
-    queue.push(y);
-    sum += y;
-    count++;
-    if (queue.length > window) {
-      sum -= queue.shift()!;
-      count--;
-    }
-    result.push({ x: data[i].x, y: count === window ? +(sum / window).toFixed(2) : null });
+  const n = data.length;
+  // if no data or invalid window, return all nulls
+  if (n === 0 || window < 2) {
+    return data.map(d => ({ x: d.x, y: null }));
   }
-  return result;
+  return data.map((point, idx) => {
+    // only start averaging after we've seen 'window' days
+    if (idx < window - 1) {
+      return { x: point.x, y: null };
+    }
+    // take the last 'window' days
+    const slice = data.slice(idx - window + 1, idx + 1);
+    // filter out nulls (including filtered outliers)
+    const vals = slice.map(d => d.y).filter((y): y is number => y != null);
+    if (vals.length === 0) {
+      return { x: point.x, y: null };
+    }
+    const sum = vals.reduce((acc, y) => acc + y, 0);
+    const avg = sum / vals.length;
+    return { x: point.x, y: +avg.toFixed(2) };
+  });
+}
+
+// Outlier filtering helper: null out any points beyond ±2 standard deviations
+function filterOutliers(data: ChartDataPoint[], numStd: number = 2): ChartDataPoint[] {
+  const validYs = data.map(d => d.y).filter((y): y is number => y != null);
+  if (!validYs.length) {
+    return data.map(d => ({ x: d.x, y: null }));
+  }
+  const mean = validYs.reduce((sum, y) => sum + y, 0) / validYs.length;
+  const variance = validYs.reduce((sum, y) => sum + Math.pow(y - mean, 2), 0) / validYs.length;
+  const std = Math.sqrt(variance);
+  return data.map(d => {
+    if (d.y == null) return { x: d.x, y: null };
+    return Math.abs(d.y - mean) > numStd * std ? { x: d.x, y: null } : d;
+  });
 }
 
 // Data fetching
@@ -565,7 +585,10 @@ async function fetchMetricsData() {
       if (showTrailingAverage.value) {
         seriesArr.push({
           name: getMetricLabel(primaryMetric1.value) + ` (${trailingAverageWindow.value}-day Avg)`,
-          data: computeTrailingAverage(series1.data, trailingAverageWindow.value)
+          data: computeTrailingAverage(
+            showFilterOutliers.value ? filterOutliers(series1.data) : series1.data,
+            trailingAverageWindow.value
+          )
         });
       }
     }
@@ -583,7 +606,10 @@ async function fetchMetricsData() {
       if (showTrailingAverage.value) {
         seriesArr.push({
           name: getMetricLabel(primaryMetric2.value) + ` (${trailingAverageWindow.value}-day Avg)`,
-          data: computeTrailingAverage(series2.data, trailingAverageWindow.value)
+          data: computeTrailingAverage(
+            showFilterOutliers.value ? filterOutliers(series2.data) : series2.data,
+            trailingAverageWindow.value
+          )
         });
       }
     }
@@ -596,7 +622,7 @@ async function fetchMetricsData() {
 
 // Watch for configuration changes
 watch([
-  primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllChanges, showTrailingAverage, trailingAverageWindow
+  primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllChanges, showTrailingAverage, trailingAverageWindow, showFilterOutliers
 ], () => {
   fetchData()
 })
