@@ -1,19 +1,21 @@
 import express from 'express';
 import cors from 'cors';
-import authRoutes from './routes/auth';
-import symptomsRoutes from './routes/symptoms';
-import notesRoutes from './routes/notes';
-import medicationsRouter from './routes/medications';
+import { symptomsRouter } from './routes/symptoms';
+import notesRouter from './routes/notes';
+import { medicationsRouter } from './routes/medications';
+import { fitbitRouter } from './routes/fitbit';
+import { healthRouter } from './routes/health';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/symptoms', symptomsRoutes);
-app.use('/api/notes', notesRoutes);
+app.use('/api/symptoms', symptomsRouter);
+app.use('/api/notes', notesRouter);
 app.use('/api/medications', medicationsRouter);
+app.use('/api/fitbit', fitbitRouter);
+app.use('/api/health', healthRouter);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

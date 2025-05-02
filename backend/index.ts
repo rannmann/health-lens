@@ -6,6 +6,7 @@ import { medicationsRouter } from './routes/medications';
 import { symptomsRouter } from './routes/symptoms';
 import { awairRouter } from './routes/awair';
 import { weatherRouter } from './routes/weather';
+import { healthRouter } from './routes/health';
 import notesRouter from './routes/notes';
 
 // Load environment variables
@@ -31,6 +32,7 @@ app.use('/api/symptoms', symptomsRouter);
 app.use('/api/awair', awairRouter);
 app.use('/api/weather', weatherRouter);
 app.use('/api/notes', notesRouter);
+app.use('/api/health', healthRouter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

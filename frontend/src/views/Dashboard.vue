@@ -33,12 +33,14 @@
                 <option value="heartRate">Resting Heart Rate (bpm)</option>
                 <option value="steps">Steps</option>
                 <option value="sleep">Sleep Duration (hrs)</option>
-                <option value="airQuality">Air Quality Score</option>
-                <option value="temperature">Temperature (°F)</option>
-                <option value="humidity">Humidity (%)</option>
-                <option value="co2">CO₂ (ppm)</option>
-                <option value="voc">VOC (ppb)</option>
-                <option value="pm25">PM2.5 (µg/m³)</option>
+                <option value="deepSleep">Deep Sleep (hrs)</option>
+                <option value="lightSleep">Light Sleep (hrs)</option>
+                <option value="remSleep">REM Sleep (hrs)</option>
+                <option value="wakeTime">Wake Time (min)</option>
+                <option value="azmTotal">Active Zone Minutes</option>
+                <option value="spo2">SpO₂ (%)</option>
+                <option value="breathingRate">Breathing Rate (br/min)</option>
+                <option value="temperature">Skin Temp Variation (°C)</option>
               </select>
             </div>
             <div class="metric-selector">
@@ -49,12 +51,14 @@
                 <option value="heartRate">Resting Heart Rate (bpm)</option>
                 <option value="steps">Steps</option>
                 <option value="sleep">Sleep Duration (hrs)</option>
-                <option value="airQuality">Air Quality Score</option>
-                <option value="temperature">Temperature (°F)</option>
-                <option value="humidity">Humidity (%)</option>
-                <option value="co2">CO₂ (ppm)</option>
-                <option value="voc">VOC (ppb)</option>
-                <option value="pm25">PM2.5 (µg/m³)</option>
+                <option value="deepSleep">Deep Sleep (hrs)</option>
+                <option value="lightSleep">Light Sleep (hrs)</option>
+                <option value="remSleep">REM Sleep (hrs)</option>
+                <option value="wakeTime">Wake Time (min)</option>
+                <option value="azmTotal">Active Zone Minutes</option>
+                <option value="spo2">SpO₂ (%)</option>
+                <option value="breathingRate">Breathing Rate (br/min)</option>
+                <option value="temperature">Skin Temp Variation (°C)</option>
               </select>
             </div>
           </div>
@@ -74,6 +78,26 @@
             <label class="toggle">
               <input type="checkbox" v-model="showAllChanges">
               <span class="toggle__label">All Changes</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Trailing Average Controls -->
+        <div class="metric-controls__section">
+          <h3 class="metric-controls__title">Smoothing</h3>
+          <div class="trailing-average-controls" style="display: flex; align-items: center; gap: 1rem;">
+            <label class="toggle">
+              <input type="checkbox" v-model="showTrailingAverage">
+              <span class="toggle__label">Show Trailing Average</span>
+            </label>
+            <label v-if="showTrailingAverage" style="display: flex; align-items: center; gap: 0.5rem;">
+              <span>Window:</span>
+              <input type="number" min="2" max="60" v-model.number="trailingAverageWindow" class="input" style="width: 60px;">
+              <span>days</span>
+            </label>
+            <label v-if="showTrailingAverage" class="toggle">
+              <input type="checkbox" v-model="showFilterOutliers">
+              <span class="toggle__label">Filter Outliers (±2σ)</span>
             </label>
           </div>
         </div>
@@ -140,18 +164,78 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { format, subDays } from 'date-fns'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../stores/user'
 import BaseCard from '../components/BaseCard.vue'
 
+// Get user store
+const userStore = useUserStore()
+const router = useRouter()
+
 // Date range state
-const startDate = ref(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
+const startDate = ref(format(subDays(new Date(), 30), 'yyyy-MM-dd'))
 const endDate = ref(format(new Date(), 'yyyy-MM-dd'))
 
 // Primary graph configuration
 const primaryMetric1 = ref('hrv')
-const primaryMetric2 = ref('steps')
+const primaryMetric2 = ref('sleep')
 const showMedications = ref(true)
 const showSymptoms = ref(false)
 const showAllChanges = ref(false)
+// Trailing average state
+const showTrailingAverage = ref(false)
+const trailingAverageWindow = ref(10)
+const showFilterOutliers = ref(false)
+
+// Add interfaces for our data types
+interface MetricDataPoint {
+  date: string;
+  hrv_rmssd: number | null;
+  total_sleep: number | null;
+  resting_hr: number | null;
+  steps: number | null;
+  deep_sleep: number | null;
+  light_sleep: number | null;
+  rem_sleep: number | null;
+  wake_minutes: number | null;
+  azm_total: number | null;
+  azm_fatburn: number | null;
+  azm_cardio: number | null;
+  azm_peak: number | null;
+  spo2_avg: number | null;
+  breathing_rate: number | null;
+  skin_temp_delta: number | null;
+}
+
+interface ChartDataPoint {
+  x: number;
+  y: number | null;
+}
+
+// Add these interfaces after the existing interfaces
+interface ChartSeries {
+  name: string;
+  data: ChartDataPoint[];
+}
+
+// Add this after the interfaces
+const METRIC_MAPPINGS = {
+  hrv: 'hrv_rmssd',
+  sleep: 'total_sleep',
+  heartRate: 'resting_hr',
+  steps: 'steps',
+  deepSleep: 'deep_sleep',
+  lightSleep: 'light_sleep',
+  remSleep: 'rem_sleep',
+  wakeTime: 'wake_minutes',
+  azmTotal: 'azm_total',
+  azmFatBurn: 'azm_fatburn',
+  azmCardio: 'azm_cardio',
+  azmPeak: 'azm_peak',
+  spo2: 'spo2_avg',
+  breathingRate: 'breathing_rate',
+  temperature: 'skin_temp_delta'
+} as const;
 
 // Chart options
 const chartCommonOptions = {
@@ -180,41 +264,122 @@ const chartCommonOptions = {
   }
 }
 
+const SERIES_COLORS = ['#008FFB', '#FEB019'];
+
+// Add colors for trailing average lines
+const TRAILING_AVG_COLORS = ['#006BB5', '#B25A14'];
+
 // Primary chart options
-const primaryChartOptions = computed(() => ({
-  ...chartCommonOptions,
-  title: {
-    text: 'Health Metrics Comparison'
-  },
-  yaxis: [
-    {
-      title: {
-        text: getMetricLabel(primaryMetric1.value)
+const primaryChartOptions = computed(() => {
+  // Dynamically build yaxis array based on selected metrics
+  const yaxes: any[] = [];
+  
+  // Left axis (Y1)
+  if (primaryMetric1.value) {
+    // Build the list of series names for axis 0
+    const axis0Series = [
+      getMetricLabel(primaryMetric1.value),
+      // include trailing‑avg name if enabled
+      ...(showTrailingAverage.value
+        ? [ `${getMetricLabel(primaryMetric1.value)} (${trailingAverageWindow.value}-day Avg)` ]
+        : []
+      )
+    ];
+
+    yaxes.push({
+      title: { text: getMetricLabel(primaryMetric1.value) },
+      labels: {
+        formatter: (v: number) => (typeof v === 'number' && !isNaN(v) ? v.toFixed(1) : ''),
+        style: { colors: [ SERIES_COLORS[0] ] }
+      },
+      // ← tie these exact series names to this axis
+      seriesName: axis0Series
+    });
+  }
+
+  // Right axis (Y2)
+  if (primaryMetric2.value) {
+    const axis1Series = [
+      getMetricLabel(primaryMetric2.value),
+      ...(showTrailingAverage.value
+        ? [ `${getMetricLabel(primaryMetric2.value)} (${trailingAverageWindow.value}-day Avg)` ]
+        : []
+      )
+    ];
+
+    yaxes.push({
+      opposite: true,
+      title: { text: getMetricLabel(primaryMetric2.value) },
+      labels: {
+        formatter: (v: number) => (typeof v === 'number' && !isNaN(v) ? v.toFixed(1) : ''),
+        style: { colors: [ SERIES_COLORS[1] ] }
+      },
+      seriesName: axis1Series
+    });
+  }
+  
+  return {
+    ...chartCommonOptions,
+    colors: [...SERIES_COLORS, ...TRAILING_AVG_COLORS],
+    chart: {
+      ...chartCommonOptions.chart,
+      type: 'line',
+      height: 400,
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        dynamicAnimation: { speed: 1000 }
       }
     },
-    primaryMetric2.value ? {
-      opposite: true,
-      title: {
-        text: getMetricLabel(primaryMetric2.value)
-      }
-    } : undefined
-  ].filter(Boolean),
-  annotations: {
-    xaxis: getAnnotations()
-  }
-}))
+    title: {
+      text: 'Health Metrics Comparison',
+      align: 'left',
+      style: { fontSize: '16px', fontWeight: 600 }
+    },
+    xaxis: {
+      type: 'datetime',
+      labels: {
+        datetimeFormatter: {
+          year: 'yyyy',
+          month: "MMM 'yy",
+          day: 'dd MMM',
+          hour: 'HH:mm'
+        },
+        datetimeUTC: false,
+        style: { colors: '#666' }
+      },
+      tooltip: { enabled: false }
+    },
+    yaxis: yaxes,
+    tooltip: {
+      shared: true,
+      x: { format: 'MMM dd, yyyy' }
+    },
+    stroke: {
+      curve: 'smooth',
+      width: [2, 2, 2, 2],
+      dashArray: [0, 0, 6, 6]
+    },
+    markers: {
+      size: dateRangeDays.value > 31 ? 0 : 3,
+      strokeWidth: 0,
+      hover: { size: 6 }
+    },
+    grid: {
+      show: true,
+      borderColor: '#f1f1f1',
+      strokeDashArray: 0,
+      position: 'back'
+    },
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right'
+    }
+  };
+})
 
 // Primary chart series
-const primaryChartSeries = ref([
-  {
-    name: getMetricLabel(primaryMetric1.value),
-    data: []
-  },
-  primaryMetric2.value ? {
-    name: getMetricLabel(primaryMetric2.value),
-    data: []
-  } : undefined
-].filter(Boolean))
+const primaryChartSeries = ref<ChartSeries[]>([])
 
 // Trend chart options
 const sleepTrendOptions = ref({
@@ -273,17 +438,22 @@ const airQualityTrendSeries = ref([{
 function getMetricLabel(metric: string): string {
   const labels: Record<string, string> = {
     hrv: 'HRV (ms)',
+    sleep: 'Sleep Duration (hrs)',
     heartRate: 'Resting Heart Rate (bpm)',
     steps: 'Steps',
-    sleep: 'Sleep Duration (hrs)',
-    airQuality: 'Air Quality Score',
-    temperature: 'Temperature (°F)',
-    humidity: 'Humidity (%)',
-    co2: 'CO₂ (ppm)',
-    voc: 'VOC (ppb)',
-    pm25: 'PM2.5 (µg/m³)'
-  }
-  return labels[metric] || metric
+    deepSleep: 'Deep Sleep (hrs)',
+    lightSleep: 'Light Sleep (hrs)',
+    remSleep: 'REM Sleep (hrs)',
+    wakeTime: 'Wake Time (min)',
+    azmTotal: 'Active Zone Minutes',
+    azmFatBurn: 'Fat Burn Minutes',
+    azmCardio: 'Cardio Minutes',
+    azmPeak: 'Peak Minutes',
+    spo2: 'SpO₂ (%)',
+    breathingRate: 'Breathing Rate (br/min)',
+    temperature: 'Skin Temp Variation (°C)'
+  };
+  return labels[metric] || metric;
 }
 
 function getAnnotations() {
@@ -307,102 +477,170 @@ function getAnnotations() {
   return annotations
 }
 
+// Trailing average helper
+function computeTrailingAverage(data: ChartDataPoint[], window: number): ChartDataPoint[] {
+  const n = data.length;
+  // if no data or invalid window, return all nulls
+  if (n === 0 || window < 2) {
+    return data.map(d => ({ x: d.x, y: null }));
+  }
+  return data.map((point, idx) => {
+    // only start averaging after we've seen 'window' days
+    if (idx < window - 1) {
+      return { x: point.x, y: null };
+    }
+    // take the last 'window' days
+    const slice = data.slice(idx - window + 1, idx + 1);
+    // filter out nulls (including filtered outliers)
+    const vals = slice.map(d => d.y).filter((y): y is number => y != null);
+    if (vals.length === 0) {
+      return { x: point.x, y: null };
+    }
+    const sum = vals.reduce((acc, y) => acc + y, 0);
+    const avg = sum / vals.length;
+    return { x: point.x, y: +avg.toFixed(2) };
+  });
+}
+
+// Outlier filtering helper: null out any points beyond ±2 standard deviations
+function filterOutliers(data: ChartDataPoint[], numStd: number = 2): ChartDataPoint[] {
+  const validYs = data.map(d => d.y).filter((y): y is number => y != null);
+  if (!validYs.length) {
+    return data.map(d => ({ x: d.x, y: null }));
+  }
+  const mean = validYs.reduce((sum, y) => sum + y, 0) / validYs.length;
+  const variance = validYs.reduce((sum, y) => sum + Math.pow(y - mean, 2), 0) / validYs.length;
+  const std = Math.sqrt(variance);
+  return data.map(d => {
+    if (d.y == null) return { x: d.x, y: null };
+    return Math.abs(d.y - mean) > numStd * std ? { x: d.x, y: null } : d;
+  });
+}
+
 // Data fetching
 const fetchData = async () => {
-  try {
-    // Fetch primary metrics
-    const [metric1Data, metric2Data] = await Promise.all([
-      fetchMetricData(primaryMetric1.value),
-      primaryMetric2.value ? fetchMetricData(primaryMetric2.value) : Promise.resolve([])
-    ])
-
-    primaryChartSeries.value = [
-      {
-        name: getMetricLabel(primaryMetric1.value),
-        data: metric1Data
-      },
-      ...(metric2Data.length ? [{
-        name: getMetricLabel(primaryMetric2.value),
-        data: metric2Data
-      }] : [])
-    ]
-
-    // Fetch trend data
-    await fetchTrendData()
-  } catch (error) {
-    console.error('Error fetching data:', error)
-  }
+  await fetchMetricsData();
 }
 
-async function fetchMetricData(metric: string) {
-  const endpoint = getMetricEndpoint(metric)
-  const response = await fetch(`${endpoint}?start=${startDate.value}&end=${endDate.value}`)
-  if (!response.ok) return []
+async function fetchMetricsData() {
+  console.log('Fetching metrics data with userId:', userStore.userId);
   
-  const data = await response.json()
-  return data.map((d: any) => ({
-    x: new Date(d.timestamp || d.date).getTime(),
-    y: d.value || d[metric]
-  }))
-}
-
-function getMetricEndpoint(metric: string): string {
-  const endpoints: Record<string, string> = {
-    hrv: '/api/fitbit/hrv',
-    heartRate: '/api/fitbit/heart-rate',
-    steps: '/api/fitbit/steps',
-    sleep: '/api/fitbit/sleep',
-    airQuality: '/api/awair/air-quality',
-    temperature: '/api/awair/temperature',
-    humidity: '/api/awair/humidity',
-    co2: '/api/awair/co2',
-    voc: '/api/awair/voc',
-    pm25: '/api/awair/pm25'
-  }
-  return endpoints[metric] || ''
-}
-
-async function fetchTrendData() {
-  // Fetch sleep data
-  const sleepResponse = await fetch(`/api/fitbit/sleep?start=${startDate.value}&end=${endDate.value}`)
-  if (sleepResponse.ok) {
-    const sleepData = await sleepResponse.json()
-    sleepTrendSeries.value = [
-      { name: 'Deep Sleep', data: sleepData.map((d: any) => ({ x: new Date(d.date).getTime(), y: d.deepSleep / 3600 })) },
-      { name: 'Light Sleep', data: sleepData.map((d: any) => ({ x: new Date(d.date).getTime(), y: d.lightSleep / 3600 })) },
-      { name: 'REM', data: sleepData.map((d: any) => ({ x: new Date(d.date).getTime(), y: d.remSleep / 3600 })) }
-    ]
+  if (!userStore.userId) {
+    console.error('No user ID available, redirecting to settings');
+    router.push('/settings');
+    return;
   }
 
-  // Fetch activity data
-  const activityResponse = await fetch(`/api/fitbit/steps?start=${startDate.value}&end=${endDate.value}`)
-  if (activityResponse.ok) {
-    const activityData = await activityResponse.json()
-    activityTrendSeries.value[0].data = activityData.map((d: any) => ({
-      x: new Date(d.date).getTime(),
-      y: d.steps
-    }))
-  }
+  try {
+    // Get the actual metric names from our mappings
+    const metric1 = METRIC_MAPPINGS[primaryMetric1.value as keyof typeof METRIC_MAPPINGS];
+    const metric2 = primaryMetric2.value ? METRIC_MAPPINGS[primaryMetric2.value as keyof typeof METRIC_MAPPINGS] : null;
 
-  // Fetch air quality data
-  const airQualityResponse = await fetch(`/api/awair/air-quality?start=${startDate.value}&end=${endDate.value}`)
-  if (airQualityResponse.ok) {
-    const airQualityData = await airQualityResponse.json()
-    airQualityTrendSeries.value[0].data = airQualityData.map((d: any) => ({
-      x: new Date(d.timestamp).getTime(),
-      y: d.score
-    }))
+    if (!metric1) {
+      console.error('Invalid primary metric selection:', primaryMetric1.value);
+      return;
+    }
+
+    // Construct metrics parameter
+    const metricsParam = metric2 ? `${metric1},${metric2}` : metric1;
+    const url = `/api/health/${userStore.userId}/metrics`;
+    const params = new URLSearchParams({
+      startDate: startDate.value,
+      endDate: endDate.value,
+      metrics: metricsParam
+    });
+
+    console.log('Fetching metrics from URL:', `${url}?${params}`);
+
+    const response = await fetch(`${url}?${params}`);
+    console.log('Response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'No error details available' }));
+      console.error('Error response:', errorData);
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const { data } = await response.json();
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.warn('No data available for the selected date range');
+      primaryChartSeries.value = [];
+      return;
+    }
+
+    // Transform data for ApexCharts
+    const seriesArr: ChartSeries[] = [];
+    // Metric 1
+    if (primaryMetric1.value) {
+      const metric1 = METRIC_MAPPINGS[primaryMetric1.value as keyof typeof METRIC_MAPPINGS];
+      const series1 = {
+        name: getMetricLabel(primaryMetric1.value),
+        data: data.map((d: MetricDataPoint): ChartDataPoint => ({
+          x: new Date(d.date).getTime(),
+          y: typeof d[metric1 as keyof MetricDataPoint] === 'number' ? d[metric1 as keyof MetricDataPoint] as number : null
+        })).filter((d: ChartDataPoint) => d.y != null)
+      };
+      seriesArr.push(series1);
+      if (showTrailingAverage.value) {
+        seriesArr.push({
+          name: getMetricLabel(primaryMetric1.value) + ` (${trailingAverageWindow.value}-day Avg)`,
+          data: computeTrailingAverage(
+            showFilterOutliers.value ? filterOutliers(series1.data) : series1.data,
+            trailingAverageWindow.value
+          )
+        });
+      }
+    }
+    // Metric 2
+    if (primaryMetric2.value) {
+      const metric2 = METRIC_MAPPINGS[primaryMetric2.value as keyof typeof METRIC_MAPPINGS];
+      const series2 = {
+        name: getMetricLabel(primaryMetric2.value),
+        data: data.map((d: MetricDataPoint): ChartDataPoint => ({
+          x: new Date(d.date).getTime(),
+          y: metric2 === 'total_sleep' && typeof d[metric2] === 'number' ? (d[metric2] as number) / 60 : typeof d[metric2 as keyof MetricDataPoint] === 'number' ? d[metric2 as keyof MetricDataPoint] as number : null
+        })).filter((d: ChartDataPoint) => d.y != null)
+      };
+      seriesArr.push(series2);
+      if (showTrailingAverage.value) {
+        seriesArr.push({
+          name: getMetricLabel(primaryMetric2.value) + ` (${trailingAverageWindow.value}-day Avg)`,
+          data: computeTrailingAverage(
+            showFilterOutliers.value ? filterOutliers(series2.data) : series2.data,
+            trailingAverageWindow.value
+          )
+        });
+      }
+    }
+    primaryChartSeries.value = seriesArr;
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    primaryChartSeries.value = [];
   }
 }
 
 // Watch for configuration changes
-watch([primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllChanges], () => {
+watch([
+  primaryMetric1, primaryMetric2, showMedications, showSymptoms, showAllChanges, showTrailingAverage, trailingAverageWindow, showFilterOutliers
+], () => {
   fetchData()
 })
 
 onMounted(() => {
-  fetchData()
+  // Set initial metrics
+  primaryMetric1.value = 'hrv';
+  primaryMetric2.value = 'sleep';
+  
+  fetchData();
 })
+
+const dateRangeDays = computed(() => {
+  const start = new Date(startDate.value);
+  const end = new Date(endDate.value);
+  // +1 to include both start and end dates
+  return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+});
 </script>
 
 <style scoped>
