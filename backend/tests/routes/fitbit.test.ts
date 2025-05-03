@@ -107,9 +107,6 @@ describe('Fitbit Router', () => {
     testDb.prepare(`INSERT INTO fitbit_sync_progress (user_id, endpoint, last_synced_date, status, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`).run(
       TEST_USER_ID, 'steps', '2024-01-07', 'completed'
     );
-    // Debug: log progress table
-    const progressRows = testDb.prepare('SELECT * FROM fitbit_sync_progress WHERE user_id = ?').all(TEST_USER_ID);
-    console.log('DEBUG progress rows:', progressRows);
     const response = await request(app).get(`/api/fitbit/backfill-status/${TEST_USER_ID}`);
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('progress');
@@ -123,15 +120,95 @@ describe('Fitbit Router', () => {
     // Insert a last summary row to allow sync, using INSERT OR IGNORE
     testDb.prepare(`INSERT OR IGNORE INTO daily_summary (user_id, date) VALUES (?, ?)`)
       .run(TEST_USER_ID, '2024-01-01');
-    // Debug: log daily_summary table
-    const summaryRows = testDb.prepare('SELECT * FROM daily_summary WHERE user_id = ?').all(TEST_USER_ID);
-    console.log('DEBUG summary rows:', summaryRows);
     const response = await request(app).get(`/api/fitbit/sync/${TEST_USER_ID}`);
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('success', true);
     expect(response.body).toHaveProperty('message', 'Sync completed');
     expect(fitbitService.endpointFetchers.steps).toHaveBeenCalled();
     expect(fitbitService.endpointFetchers.heart).toHaveBeenCalled();
+  });
+
+  test('GET /api/fitbit/:userId/sleep returns mocked sleep data', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/sleep`);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('sleep');
+    expect(Array.isArray(response.body.sleep)).toBe(true);
+    expect(response.body.sleep.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/fitbit/:userId/hrv returns mocked hrv data', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/hrv`);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('hrv');
+    expect(Array.isArray(response.body.hrv)).toBe(true);
+    expect(response.body.hrv.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/fitbit/:userId/spo2 returns mocked spo2 data', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/spo2`);
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true); // spo2 mock is an array
+    expect(response.body.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/fitbit/:userId/temperature returns mocked temperature data', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/temperature`);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('tempSkin');
+    expect(Array.isArray(response.body.tempSkin)).toBe(true);
+    expect(response.body.tempSkin.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/fitbit/:userId/azm returns mocked azm data', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/azm`);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('activities-active-zone-minutes');
+    expect(Array.isArray(response.body['activities-active-zone-minutes'])).toBe(true);
+    expect(response.body['activities-active-zone-minutes'].length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/fitbit/:userId/breathing returns mocked breathing data', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/breathing`);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('br');
+    expect(Array.isArray(response.body.br)).toBe(true);
+    expect(response.body.br.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/fitbit/:userId/invalid-metric returns 400', async () => {
+    const response = await request(app).get(`/api/fitbit/${TEST_USER_ID}/invalid-metric`);
+    expect(response.status).toBe(400);
+    expect(response.body).toHaveProperty('error', 'Invalid metric');
+  });
+
+  test('POST /api/fitbit/disconnect removes fitbit connection', async () => {
+    // Insert a fitbit_connections row
+    testDb.prepare(`INSERT OR IGNORE INTO fitbit_connections (user_id, fitbit_user_id, access_token, refresh_token, expires_at, scope) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(TEST_USER_ID, 'fake-fitbit-user', 'fake-token', 'fake-refresh', '2099-01-01T00:00:00', 'test-scope');
+    const response = await request(app)
+      .post('/api/fitbit/disconnect')
+      .send({ userId: TEST_USER_ID });
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('success', true);
+    // Check that the row is deleted
+    const row = testDb.prepare('SELECT * FROM fitbit_connections WHERE user_id = ?').get(TEST_USER_ID);
+    expect(row).toBeUndefined();
+  });
+
+  test('GET /api/fitbit/status returns connected', async () => {
+    // Insert a fitbit_connections row
+    testDb.prepare(`INSERT OR IGNORE INTO fitbit_connections (user_id, fitbit_user_id, access_token, refresh_token, expires_at, scope, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+      .run(TEST_USER_ID, 'fake-fitbit-user', 'fake-token', 'fake-refresh', '2099-01-01T00:00:00', 'test-scope');
+    const response = await request(app).get('/api/fitbit/status').query({ userId: TEST_USER_ID });
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('connected', true);
+    expect(response.body).toHaveProperty('lastSync');
+  });
+
+  test('GET /api/fitbit/status returns not connected for missing user', async () => {
+    const response = await request(app).get('/api/fitbit/status').query({ userId: 'nonexistent' });
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('connected', false);
   });
 
   // Add more tests for other endpoints as needed, mocking their fetchers similarly
