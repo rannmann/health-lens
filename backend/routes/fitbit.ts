@@ -772,12 +772,18 @@ router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Respon
 
         // Use today as end date
         let endDate = queryEnd ? String(queryEnd) : format(new Date(), 'yyyy-MM-dd');
-        // If we have no data, start from 30 days ago
-        let startDate = queryStart
-            ? String(queryStart)
-            : (lastSummary?.last_date
-                ? lastSummary.last_date
-                : format(addDays(new Date(), -30), 'yyyy-MM-dd'));
+        // If we have no data, require backfill
+        let startDate: string;
+        if (queryStart) {
+            startDate = String(queryStart);
+        } else if (lastSummary?.last_date) {
+            startDate = lastSummary.last_date;
+        } else {
+            // No previous data, require backfill
+            return res.status(400).json({
+                error: 'No previous data found. Please use the backfill option to import your full Fitbit history.'
+            });
+        }
 
         // Only proceed if there's new data to sync
         if (new Date(startDate) > new Date(endDate)) {
