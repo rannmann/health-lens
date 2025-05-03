@@ -594,11 +594,6 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
         });
 
         const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
-        const headers = {
-            'Authorization': `Bearer ${access_token}`,
-            'Accept-Language': 'en_US'
-        };
-
         // Use customEndDate if provided, otherwise yesterday
         const endDate = customEndDate || format(addDays(new Date(), -1), 'yyyy-MM-dd');
 
@@ -609,7 +604,8 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
 
         for (const endpointKey of endpointKeys) {
             const config = ENDPOINT_CONFIGS[endpointKey];
-            if (!config) continue;
+            const fetcher = endpointFetchers[endpointKey];
+            if (!config || !fetcher) continue;
             try {
                 initProgress.run(userId, endpointKey, startDate, 'in_progress');
                 let currentDate = new Date(endDate); // Start from most recent
@@ -621,17 +617,18 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
                     if (chunkStartDate < startDateTime) {
                         chunkStartDate = startDateTime;
                     }
-                    const url = `https://api.fitbit.com/1/user/${fitbit_user_id}/${config.path}/date/${format(chunkStartDate, 'yyyy-MM-dd')}/${format(currentDate, 'yyyy-MM-dd')}.json`;
+                    const chunkStart = format(chunkStartDate, 'yyyy-MM-dd');
+                    const chunkEnd = format(currentDate, 'yyyy-MM-dd');
                     try {
-                        const data = await fetchWithRateLimit(url, headers, userId);
-                        await processEndpointData(userId, endpointKey, data, format(chunkStartDate, 'yyyy-MM-dd'), format(currentDate, 'yyyy-MM-dd'));
+                        const data = await fetcher(fitbit_user_id, access_token, chunkStart, chunkEnd, userId);
+                        await processEndpointData(userId, endpointKey, data, chunkStart, chunkEnd);
                         db.prepare(`
                             UPDATE fitbit_sync_progress 
                             SET last_synced_date = ?, 
                                 status = 'in_progress',
                                 updated_at = CURRENT_TIMESTAMP
                             WHERE user_id = ? AND endpoint = ?
-                        `).run(format(currentDate, 'yyyy-MM-dd'), userId, endpointKey);
+                        `).run(chunkEnd, userId, endpointKey);
                         const hasData = data && (
                             data.activities?.length > 0 ||
                             data.sleep?.length > 0 ||
@@ -694,44 +691,94 @@ router.get('/backfill-status/:userId', async (req: Request<{ userId: string }>, 
     }
 });
 
-// Modify the existing sync endpoint to focus on recent data
+// --- Fitbit API Helper Functions ---
+
+async function fetchFitbitData(
+    fitbit_user_id: string,
+    access_token: string,
+    endpointPath: string,
+    startDate: string,
+    endDate: string,
+    userId: string
+): Promise<any> {
+    const url = `https://api.fitbit.com/1/user/${fitbit_user_id}/${endpointPath}/date/${startDate}/${endDate}.json`;
+    const headers = {
+        'Authorization': `Bearer ${access_token}`,
+        'Accept-Language': 'en_US'
+    };
+    return await fetchWithRateLimit(url, headers, userId);
+}
+
+async function fetchHeartData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.heart.path, startDate, endDate, userId);
+}
+async function fetchSleepData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.sleep.path, startDate, endDate, userId);
+}
+async function fetchStepsData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.steps.path, startDate, endDate, userId);
+}
+async function fetchHRVData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.hrv.path, startDate, endDate, userId);
+}
+async function fetchAZMData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.azm.path, startDate, endDate, userId);
+}
+async function fetchSpO2Data(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.spo2.path, startDate, endDate, userId);
+}
+async function fetchTemperatureData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.temperature.path, startDate, endDate, userId);
+}
+async function fetchBreathingData(fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) {
+    return fetchFitbitData(fitbit_user_id, access_token, ENDPOINT_CONFIGS.breathing.path, startDate, endDate, userId);
+}
+
+const endpointFetchers: Record<string, (fitbit_user_id: string, access_token: string, startDate: string, endDate: string, userId: string) => Promise<any>> = {
+    heart: fetchHeartData,
+    sleep: fetchSleepData,
+    steps: fetchStepsData,
+    hrv: fetchHRVData,
+    azm: fetchAZMData,
+    spo2: fetchSpO2Data,
+    temperature: fetchTemperatureData,
+    breathing: fetchBreathingData
+};
+
+
 router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Response) => {
     const { userId } = req.params;
     
     try {
         const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
-        const headers = {
-            'Authorization': `Bearer ${access_token}`,
-            'Accept-Language': 'en_US'
-        };
-        
-        // Get the last sync date from the progress table
-        const lastSync = db.prepare(`
-            SELECT MIN(last_synced_date) as last_sync
-            FROM fitbit_sync_progress
-            WHERE user_id = ? AND status = 'completed'
-        `).get(userId) as { last_sync: string | null };
+        // Find the most recent date in daily_summary for this user
+        const lastSummary = db.prepare(`
+            SELECT MAX(date) as last_date
+            FROM daily_summary
+            WHERE user_id = ?
+        `).get(userId) as { last_date: string | null };
 
-        // Use yesterday as end date to ensure complete data
-        const endDate = format(addDays(new Date(), -1), 'yyyy-MM-dd');
-        // If we have no sync history, start from 30 days ago
-        const startDate = lastSync?.last_sync 
-            ? format(addDays(new Date(lastSync.last_sync), 1), 'yyyy-MM-dd')
+        // Use today as end date
+        const endDate = format(new Date(), 'yyyy-MM-dd');
+        // If we have no data, start from 30 days ago
+        const startDate = lastSummary?.last_date
+            ? lastSummary.last_date
             : format(addDays(new Date(), -30), 'yyyy-MM-dd');
 
         // Only proceed if there's new data to sync
         if (new Date(startDate) > new Date(endDate)) {
             return res.json({ 
                 message: 'Already up to date',
-                lastSync: lastSync?.last_sync
+                lastSync: lastSummary?.last_date
             });
         }
 
-        // Process each endpoint
+        // Process each endpoint using the new fetchers
         for (const [endpointKey, config] of Object.entries(ENDPOINT_CONFIGS)) {
             try {
-                const url = `https://api.fitbit.com/1/user/${fitbit_user_id}/${config.path}/date/${startDate}/${endDate}.json`;
-                const data = await fetchWithRateLimit(url, headers, userId);
+                const fetcher = endpointFetchers[endpointKey];
+                if (!fetcher) continue;
+                const data = await fetcher(fitbit_user_id, access_token, startDate, endDate, userId);
                 await processEndpointData(userId, endpointKey, data, startDate, endDate);
 
                 // Update sync progress
@@ -753,7 +800,7 @@ router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Respon
             success: true,
             message: 'Sync completed',
             syncRange: { startDate, endDate },
-            needsBackfill: !lastSync?.last_sync
+            needsBackfill: !lastSummary?.last_date
         });
         
     } catch (error) {
@@ -762,34 +809,31 @@ router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Respon
     }
 });
 
-// Individual metric endpoints
+// Refactored individual metric endpoint to use endpointFetchers
 router.get('/:userId/:metric', async (req: Request<{ userId: string; metric: string }>, res: Response) => {
     const { userId, metric } = req.params;
     const { startDate, endDate } = req.query;
 
     try {
         const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
-
-        // Map metric to Fitbit endpoint
-        const endpoints: Record<string, string> = {
-            'heart-rate': `activities/heart/date/${startDate}/${endDate}.json`,
-            'steps': `activities/steps/date/${startDate}/${endDate}.json`,
-            'sleep': `sleep/date/${startDate}/${endDate}.json`,
-            'hrv': `hrv/date/${startDate}/${endDate}.json`,
-            'spo2': `sleep/spo2/date/${startDate}/${endDate}.json`,
-            'temperature': `temperature/skin/date/${startDate}/${endDate}.json`
+        // Map metric to endpointKey
+        const metricMap: Record<string, string> = {
+            'heart-rate': 'heart',
+            'steps': 'steps',
+            'sleep': 'sleep',
+            'hrv': 'hrv',
+            'spo2': 'spo2',
+            'temperature': 'temperature',
+            'azm': 'azm',
+            'breathing': 'breathing'
         };
-
-        const endpoint = endpoints[metric];
-        if (!endpoint) {
+        const endpointKey = metricMap[metric];
+        const fetcher = endpointFetchers[endpointKey];
+        if (!fetcher) {
             return res.status(400).json({ error: 'Invalid metric' });
         }
-
-        const response = await axios.get(`https://api.fitbit.com/1/user/${fitbit_user_id}/${endpoint}`, {
-            headers: { Authorization: `Bearer ${access_token}` }
-        });
-
-        res.json(response.data);
+        const data = await fetcher(fitbit_user_id, access_token, startDate as string, endDate as string, userId);
+        res.json(data);
     } catch (error) {
         console.error(`Fitbit ${metric} fetch error:`, error);
         if (axios.isAxiosError(error) && error.response?.status === 429) {
