@@ -568,6 +568,9 @@ async function processBatchWithRateLimit(
     return results;
 }
 
+// Add a lock map to prevent concurrent backfills
+const backfillLocks = new Map<string, boolean>();
+
 // Modify the backfill endpoint to use the enhanced rate limiting
 router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: Response) => {
     const { userId } = req.params;
@@ -576,6 +579,12 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
     if (!startDate) {
         return res.status(400).json({ error: 'Start date is required for backfill' });
     }
+
+    // Prevent concurrent backfills for the same user
+    if (backfillLocks.get(userId)) {
+        return res.status(409).json({ error: 'A backfill is already in progress for this user.' });
+    }
+    backfillLocks.set(userId, true);
 
     try {
         // Initialize progress for all endpoints
@@ -668,8 +677,10 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
                 }
             }
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('Backfill error:', error);
+    } finally {
+        backfillLocks.delete(userId);
     }
 });
 
@@ -748,7 +759,8 @@ const endpointFetchers: Record<string, (fitbit_user_id: string, access_token: st
 
 router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Response) => {
     const { userId } = req.params;
-    
+    // Use query params if provided
+    const { startDate: queryStart, endDate: queryEnd } = req.query;
     try {
         const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
         // Find the most recent date in daily_summary for this user
@@ -759,11 +771,13 @@ router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Respon
         `).get(userId) as { last_date: string | null };
 
         // Use today as end date
-        const endDate = format(new Date(), 'yyyy-MM-dd');
+        let endDate = queryEnd ? String(queryEnd) : format(new Date(), 'yyyy-MM-dd');
         // If we have no data, start from 30 days ago
-        const startDate = lastSummary?.last_date
-            ? lastSummary.last_date
-            : format(addDays(new Date(), -30), 'yyyy-MM-dd');
+        let startDate = queryStart
+            ? String(queryStart)
+            : (lastSummary?.last_date
+                ? lastSummary.last_date
+                : format(addDays(new Date(), -30), 'yyyy-MM-dd'));
 
         // Only proceed if there's new data to sync
         if (new Date(startDate) > new Date(endDate)) {
@@ -803,9 +817,17 @@ router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Respon
             needsBackfill: !lastSummary?.last_date
         });
         
-    } catch (error) {
-        console.error('Fitbit sync error:', error);
-        res.status(500).json({ error: 'Failed to sync Fitbit data' });
+    } catch (error: any) {
+        if (error.message && error.message.includes('No Fitbit connection found')) {
+            res.status(400).json({ error: 'No Fitbit connection found for this user. Please reconnect your Fitbit account.' });
+        } else if (error.message && error.message.includes('No valid refresh token found')) {
+            res.status(400).json({ error: 'No valid refresh token found. Please reconnect your Fitbit account.' });
+        } else if (error.message && error.message.includes('User not found')) {
+            res.status(404).json({ error: 'User not found. Please reconnect your Fitbit account.' });
+        } else {
+            console.error('Fitbit sync error:', error);
+            res.status(500).json({ error: 'Failed to sync Fitbit data' });
+        }
     }
 });
 
@@ -918,58 +940,6 @@ router.post('/disconnect', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Fitbit disconnect error:', error);
         res.status(500).json({ error: 'Failed to disconnect Fitbit' });
-    }
-});
-
-// Add this new endpoint before the export statement
-router.get('/:userId/metrics', async (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
-    const { startDate, endDate, metrics } = req.query;
-
-    console.log('Metrics request:', { userId, startDate, endDate, metrics });
-
-    if (!startDate || !endDate || !metrics) {
-        return res.status(400).json({ error: 'Start date, end date, and metrics are required' });
-    }
-
-    try {
-        // Parse metrics array
-        const metricsList = (metrics as string).split(',');
-        console.log('Parsed metrics:', metricsList);
-        
-        // Build dynamic SQL query based on requested metrics
-        const validMetrics = new Set([
-            'hrv_rmssd', 'total_sleep', 'resting_hr', 'steps', 
-            'deep_sleep', 'light_sleep', 'rem_sleep', 'wake_minutes',
-            'azm_total', 'azm_fatburn', 'azm_cardio', 'azm_peak',
-            'spo2_avg', 'breathing_rate', 'skin_temp_delta'
-        ]);
-
-        const requestedMetrics = metricsList.filter(m => validMetrics.has(m));
-        console.log('Valid metrics:', requestedMetrics);
-
-        if (requestedMetrics.length === 0) {
-            console.log('No valid metrics found in:', metricsList);
-            return res.status(400).json({ error: 'No valid metrics requested' });
-        }
-
-        const sql = `
-            SELECT date, ${requestedMetrics.join(', ')}
-            FROM daily_summary
-            WHERE user_id = ?
-            AND date BETWEEN ? AND ?
-            ORDER BY date ASC
-        `;
-        console.log('SQL Query:', sql);
-        console.log('SQL Params:', [userId, startDate, endDate]);
-
-        const data = db.prepare(sql).all(userId, startDate, endDate);
-        console.log('Query results:', data);
-
-        res.json({ data });
-    } catch (error) {
-        console.error('Error fetching metrics:', error);
-        res.status(500).json({ error: 'Failed to fetch metrics' });
     }
 });
 
