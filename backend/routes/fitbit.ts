@@ -134,8 +134,8 @@ async function processEndpointData(
     switch (endpointKey) {
         case 'heart':
             // Heart data comes as array of daily values
-            if (data.activities?.heart) {
-                for (const day of data.activities.heart) {
+            if (data['activities-heart']) {
+                for (const day of data['activities-heart']) {
                     if (day.value?.restingHeartRate) {
                         upsertDailySummary({
                             user_id: userId,
@@ -241,14 +241,16 @@ async function processEndpointData(
             break;
             
         case 'spo2':
-            // SpO2 data comes as daily values
-            if (data.value?.avg) {
-                for (const [date, value] of Object.entries(data.value.avg)) {
-                    upsertDailySummary({
-                        user_id: userId,
-                        date,
-                        spo2_avg: value as number
-                    });
+            // SpO2 data comes as an array of daily values (from API)
+            if (Array.isArray(data)) {
+                for (const day of data) {
+                    if (day.value?.avg !== undefined && day.dateTime) {
+                        upsertDailySummary({
+                            user_id: userId,
+                            date: day.dateTime,
+                            spo2_avg: day.value.avg
+                        });
+                    }
                 }
             }
             break;
@@ -269,10 +271,10 @@ async function processEndpointData(
             break;
             
         case 'temperature':
-            // Temperature data comes as array of daily values
-            if (data.temperature) {
-                for (const day of data.temperature) {
-                    if (day.value?.nightlyRelative) {
+            // Temperature data comes as tempSkin array (from API)
+            if (data.tempSkin) {
+                for (const day of data.tempSkin) {
+                    if (day.value?.nightlyRelative !== undefined && day.dateTime) {
                         upsertDailySummary({
                             user_id: userId,
                             date: day.dateTime,
