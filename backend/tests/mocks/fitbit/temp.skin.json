@@ -1,0 +1,25 @@
+{
+    "tempSkin": [
+        {
+            "dateTime": "2019-12-10",
+            "value": {
+                "nightlyRelative": 0.3
+            },
+            "logType": "dedicated_temp_sensor"
+        },
+        {
+            "dateTime": "2019-12-11",
+            "value": {
+                "nightlyRelative": -0.2
+            },
+            "logType": "dedicated_temp_sensor"
+        },
+        {
+            "dateTime": "2019-12-12",
+            "value": {
+                "nightlyRelative": 2
+            },
+            "logType": "dedicated_temp_sensor"
+        }
+    ]
+}

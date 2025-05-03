@@ -1,0 +1,139 @@
+{
+    "sleep": [
+        {
+            "dateOfSleep": "2020-01-27",
+            "duration": 4560000,
+            "efficiency": 86,
+            "endTime": "2020-01-27T00:17:30.000",
+            "infoCode": 2,
+            "isMainSleep": true,
+            "levels": {
+                "data": [
+                    {
+                        "dateTime": "2020-01-26T23:01:00.000",
+                        "level": "restless",
+                        "seconds": 360
+                    },
+                    {
+                        "dateTime": "2020-01-26T23:07:00.000",
+                        "level": "asleep",
+                        "seconds": 1800
+                    },
+                    {
+                        "dateTime": "2020-01-27T00:00:00.000",
+                        "level": "asleep",
+                        "seconds": 1020
+                    }
+                ],
+                "summary": {
+                    "asleep": {
+                        "count": 3,
+                        "minutes": 65
+                    },
+                    "awake": {
+                        "count": 0,
+                        "minutes": 0
+                    },
+                    "restless": {
+                        "count": 4,
+                        "minutes": 11
+                    }
+                }
+            },
+            "logId": 25647389515,
+            "minutesAfterWakeup": 0,
+            "minutesAsleep": 65,
+            "minutesAwake": 11,
+            "minutesToFallAsleep": 0,
+            "logType": "auto_detected",
+            "startTime": "2020-01-26T23:01:00.000",
+            "timeInBed": 76,
+            "type": "classic"
+        },
+        {
+            "dateOfSleep": "2020-01-26",
+            "duration": 18000000,
+            "efficiency": 94,
+            "endTime": "2020-01-26T08:03:00.000",
+            "infoCode": 0,
+            "isMainSleep": true,
+            "levels": {
+                "data": [
+                    {
+                        "dateTime": "2020-01-26T03:02:30.000",
+                        "level": "wake",
+                        "seconds": 450
+                    },
+                    {
+                        "dateTime": "2020-01-26T03:10:00.000",
+                        "level": "light",
+                        "seconds": 330
+                    },
+                    {
+                        "dateTime": "2020-01-26T03:15:30.000",
+                        "level": "deep",
+                        "seconds": 450
+                    },
+                    {
+                        "dateTime": "2020-01-26T07:50:00.000",
+                        "level": "wake",
+                        "seconds": 780
+                    }
+                ],
+                "shortData": [
+                    {
+                        "dateTime": "2020-01-26T03:12:00.000",
+                        "level": "wake",
+                        "seconds": 30
+                    },
+                    {
+                        "dateTime": "2020-01-26T03:22:30.000",
+                        "level": "wake",
+                        "seconds": 30
+                    },
+                    {
+                        "dateTime": "2020-01-26T07:38:30.000",
+                        "level": "wake",
+                        "seconds": 30
+                    },
+                    {
+                        "dateTime": "2020-01-26T07:44:00.000",
+                        "level": "wake",
+                        "seconds": 30
+                    }
+                ],
+                "summary": {
+                    "deep": {
+                        "count": 4,
+                        "minutes": 46,
+                        "thirtyDayAvgMinutes": 0
+                    },
+                    "light": {
+                        "count": 19,
+                        "minutes": 133,
+                        "thirtyDayAvgMinutes": 0
+                    },
+                    "rem": {
+                        "count": 8,
+                        "minutes": 81,
+                        "thirtyDayAvgMinutes": 0
+                    },
+                    "wake": {
+                        "count": 21,
+                        "minutes": 40,
+                        "thirtyDayAvgMinutes": 0
+                    }
+                }
+            },
+            "logId": 25647389514,
+            "minutesAfterWakeup": 3,
+            "minutesAsleep": 260,
+            "minutesAwake": 40,
+            "minutesToFallAsleep": 0,
+            "logType": "auto_detected",
+            "startTime": "2020-01-26T03:02:30.000",
+            "timeInBed": 300,
+            "type": "stages"
+        }
+    ]
+}

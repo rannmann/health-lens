@@ -1,0 +1,22 @@
+{
+    "activities-active-zone-minutes": [
+        {
+            "dateTime": "2022-05-01",
+            "value": {
+                "activeZoneMinutes": 21,
+                "fatBurnActiveZoneMinutes": 5,
+                "cardioActiveZoneMinutes": 12,
+                "peakActiveZoneMinutes": 4
+            }
+        },
+        {
+            "dateTime": "2022-05-02",
+            "value": {
+                "activeZoneMinutes": 25,
+                "fatBurnActiveZoneMinutes": 7,
+                "cardioActiveZoneMinutes": 18,
+                "peakActiveZoneMinutes": 0
+            }
+        }
+    ]
+}
