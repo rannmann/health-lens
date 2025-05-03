@@ -7,7 +7,6 @@ import {
     getValidAccessToken,
     refreshAccessToken,
     processEndpointData,
-    fetchWithRateLimit,
     endpointFetchers
 } from '../services/fitbit/fitbitService';
 
