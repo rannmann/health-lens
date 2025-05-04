@@ -105,8 +105,12 @@
     </BaseCard>
 
     <!-- Primary Graph -->
-    <BaseCard class="dashboard__primary-chart">
-      <template #title>Health Metrics Comparison</template>
+    <BaseCard class="dashboard__primary-chart" :title="'Health Metrics Comparison'">
+      <template #actions>
+        <button class="popout-btn" @click="showFullScreenChart = true" title="Full Screen">
+          ⛶
+        </button>
+      </template>
       <div class="chart-container">
         <apexchart
           type="line"
@@ -116,6 +120,23 @@
         />
       </div>
     </BaseCard>
+
+    <!-- Full-Screen Chart Modal -->
+    <template v-if="showFullScreenChart">
+      <div class="fullscreen-modal" @click.self="showFullScreenChart = false">
+        <div class="fullscreen-modal__content">
+          <button class="close-btn" @click="showFullScreenChart = false" title="Close">✕</button>
+          <apexchart
+            ref="fullscreenChartRef"
+            type="line"
+            height="100%"
+            width="100%"
+            :options="primaryChartOptions"
+            :series="primaryChartSeries"
+          />
+        </div>
+      </div>
+    </template>
 
     <!-- Trend Graphs -->
     <section class="dashboard__trends">
@@ -162,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { format, subDays } from 'date-fns'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
@@ -186,6 +207,7 @@ const showAllChanges = ref(false)
 const showTrailingAverage = ref(false)
 const trailingAverageWindow = ref(10)
 const showFilterOutliers = ref(false)
+const showFullScreenChart = ref(false)
 
 // Add interfaces for our data types
 interface MetricDataPoint {
@@ -641,6 +663,15 @@ const dateRangeDays = computed(() => {
   // +1 to include both start and end dates
   return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 });
+
+const fullscreenChartRef = ref()
+
+watch(showFullScreenChart, async (val) => {
+  if (val) {
+    await nextTick()
+    fullscreenChartRef.value?.chart?.resize()
+  }
+})
 </script>
 
 <style scoped>
@@ -775,5 +806,51 @@ const dateRangeDays = computed(() => {
   border: 1px solid var(--border-medium) !important;
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-lg) !important;
+}
+
+.fullscreen-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fullscreen-modal__content {
+  background: white;
+  border-radius: var(--radius-lg, 12px);
+  padding: 2rem;
+  position: relative;
+  width: 95vw;
+  max-width: none;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.fullscreen-modal__content .apexcharts-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.fullscreen-modal__content apexchart {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+}
+.popout-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  margin-left: 1rem;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
 }
 </style> 
