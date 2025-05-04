@@ -143,13 +143,13 @@
       <h2 class="dashboard__section-title">Trend Overview</h2>
       <div class="trends-grid">
         <BaseCard>
-          <template #title>Sleep Quality</template>
+          <template #title>Steps (Past Month)</template>
           <div class="chart-container">
             <apexchart
               type="bar"
               height="200"
-              :options="sleepTrendOptions"
-              :series="sleepTrendSeries"
+              :options="stepsTrendOptions"
+              :series="stepsTrendSeries"
             />
           </div>
         </BaseCard>
@@ -183,15 +183,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '../stores/user'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import BaseCard from '../components/BaseCard.vue'
 import { useMainChart } from '../composables/useMainChart'
-
-// Get user store
-const userStore = useUserStore()
-const router = useRouter()
+import { useMetricTrend } from '../composables/useMetricTrend'
 
 // Main chart composable
 const {
@@ -204,9 +199,7 @@ const {
   showFilterOutliers,
   primaryChartOptions,
   primaryChartSeries,
-  fetchData,
-  dateRangeDays
-} = useMainChart()
+  fetchData} = useMainChart()
 
 // Other dashboard state
 const showMedications = ref(true)
@@ -347,8 +340,16 @@ watch(showFullScreenChart, async (val) => {
   }
 })
 
+// Steps trend composable (generic)
+const { trendOptions: stepsTrendOptions, trendSeries: stepsTrendSeries, fetchTrend: fetchStepsTrend } = useMetricTrend('steps', 'Steps', '#008FFB', startDate, endDate)
+
 onMounted(() => {
   fetchData();
+  fetchStepsTrend();
+})
+
+watch([startDate, endDate], () => {
+  fetchStepsTrend();
 })
 </script>
 
