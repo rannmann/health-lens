@@ -155,25 +155,25 @@
         </BaseCard>
         
         <BaseCard>
-          <template #title>Activity</template>
+          <template #title>Active Zone Minutes</template>
           <div class="chart-container">
             <apexchart
               type="bar"
               height="200"
-              :options="activityTrendOptions"
-              :series="activityTrendSeries"
+              :options="azmTrendOptions"
+              :series="azmTrendSeries"
             />
           </div>
         </BaseCard>
         
         <BaseCard>
-          <template #title>Air Quality</template>
+          <template #title>Wake Minutes</template>
           <div class="chart-container">
             <apexchart
-              type="line"
+              type="bar"
               height="200"
-              :options="airQualityTrendOptions"
-              :series="airQualityTrendSeries"
+              :options="wakeTrendOptions"
+              :series="wakeTrendSeries"
             />
           </div>
         </BaseCard>
@@ -247,89 +247,14 @@ const sleepTrendOptions = ref({
   }
 })
 
-const activityTrendOptions = ref({
-  ...{
-    chart: {
-      toolbar: {
-        show: true,
-        tools: {
-          download: true,
-          selection: true,
-          zoom: true,
-          zoomin: true,
-          zoomout: true,
-          pan: true,
-          reset: true
-        }
-      }
-    },
-    xaxis: {
-      type: 'datetime'
-    },
-    stroke: {
-      curve: 'smooth'
-    },
-    markers: {
-      size: 4
-    }
-  },
-  colors: ['#008FFB'],
-  title: {
-    text: 'Daily Activity'
-  }
-})
+// Wake Minutes trend composable
+const { trendOptions: wakeTrendOptions, trendSeries: wakeTrendSeries, fetchTrend: fetchWakeTrend } = useMetricTrend('wake_minutes', 'Wake Minutes', '#FFB347', startDate, endDate)
 
-const airQualityTrendOptions = ref({
-  ...{
-    chart: {
-      toolbar: {
-        show: true,
-        tools: {
-          download: true,
-          selection: true,
-          zoom: true,
-          zoomin: true,
-          zoomout: true,
-          pan: true,
-          reset: true
-        }
-      }
-    },
-    xaxis: {
-      type: 'datetime'
-    },
-    stroke: {
-      curve: 'smooth'
-    },
-    markers: {
-      size: 4
-    }
-  },
-  colors: ['#00E396'],
-  title: {
-    text: 'Air Quality Score'
-  },
-  yaxis: {
-    min: 0,
-    max: 100
-  }
-})
+// Steps trend composable (generic)
+const { trendOptions: stepsTrendOptions, trendSeries: stepsTrendSeries, fetchTrend: fetchStepsTrend } = useMetricTrend('steps', 'Steps', '#008FFB', startDate, endDate)
 
-const sleepTrendSeries = ref([
-  { name: 'Deep Sleep', data: [] },
-  { name: 'Light Sleep', data: [] },
-  { name: 'REM', data: [] }
-])
-
-const activityTrendSeries = ref([{
-  name: 'Steps',
-  data: []
-}])
-
-const airQualityTrendSeries = ref([{
-  name: 'Air Quality',
-  data: []
-}])
+// Activity trend composable (AZM)
+const { trendOptions: azmTrendOptions, trendSeries: azmTrendSeries, fetchTrend: fetchAzmTrend } = useMetricTrend('azm_total', 'Active Zone Minutes', '#00E396', startDate, endDate)
 
 // Fullscreen chart logic
 const fullscreenChartRef = ref()
@@ -340,16 +265,17 @@ watch(showFullScreenChart, async (val) => {
   }
 })
 
-// Steps trend composable (generic)
-const { trendOptions: stepsTrendOptions, trendSeries: stepsTrendSeries, fetchTrend: fetchStepsTrend } = useMetricTrend('steps', 'Steps', '#008FFB', startDate, endDate)
-
 onMounted(() => {
   fetchData();
   fetchStepsTrend();
+  fetchAzmTrend();
+  fetchWakeTrend();
 })
 
 watch([startDate, endDate], () => {
   fetchStepsTrend();
+  fetchAzmTrend();
+  fetchWakeTrend();
 })
 </script>
 
