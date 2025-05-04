@@ -340,13 +340,20 @@ const primaryChartOptions = computed(() => {
     });
   }
   
+  // Dynamically build the colors array to match the series order
+  const colors: string[] = [];
+  if (primaryMetric1.value) {
+    colors.push(SERIES_COLORS[0]);
+    if (showTrailingAverage.value) colors.push(TRAILING_AVG_COLORS[0]);
+  }
+  if (primaryMetric2.value) {
+    colors.push(SERIES_COLORS[1]);
+    if (showTrailingAverage.value) colors.push(TRAILING_AVG_COLORS[1]);
+  }
+
   return {
     ...chartCommonOptions,
-    colors: [
-      // Raw data, then trailing average
-      ...SERIES_COLORS,
-      ...TRAILING_AVG_COLORS
-    ],
+    colors,
     chart: {
       ...chartCommonOptions.chart,
       type: 'line',
