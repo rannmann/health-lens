@@ -286,10 +286,10 @@ const chartCommonOptions = {
   }
 }
 
-const SERIES_COLORS = ['#008FFB', '#FEB019'];
-
-// Add colors for trailing average lines
-const TRAILING_AVG_COLORS = ['#006BB5', '#B25A14'];
+// Accessible, colorblind-friendly palette (blue, orange, purple, green)
+const SERIES_COLORS = ['#7FA2FF', '#FFB347']; // Lighter, high-contrast
+// Trailing average: darker, bolder versions
+const TRAILING_AVG_COLORS = ['#1A237E', '#FF6F00'];
 
 // Primary chart options
 const primaryChartOptions = computed(() => {
@@ -342,7 +342,11 @@ const primaryChartOptions = computed(() => {
   
   return {
     ...chartCommonOptions,
-    colors: [...SERIES_COLORS, ...TRAILING_AVG_COLORS],
+    colors: [
+      // Raw data, then trailing average
+      ...SERIES_COLORS,
+      ...TRAILING_AVG_COLORS
+    ],
     chart: {
       ...chartCommonOptions.chart,
       type: 'line',
@@ -368,7 +372,7 @@ const primaryChartOptions = computed(() => {
           hour: 'HH:mm'
         },
         datetimeUTC: false,
-        style: { colors: '#666' }
+        style: { colors: '#222', fontWeight: 500 }
       },
       tooltip: { enabled: false }
     },
@@ -378,24 +382,36 @@ const primaryChartOptions = computed(() => {
       x: { format: 'MMM dd, yyyy' }
     },
     stroke: {
-      curve: 'smooth',
-      width: [2, 2, 2, 2],
-      dashArray: [0, 0, 6, 6]
+      // Raw data: lighter, dashed; trailing avg: solid, thicker
+      width: [2, 2, 3, 3],
+      dashArray: [0, 0, 0, 0],
+      curve: 'smooth'
     },
     markers: {
-      size: dateRangeDays.value > 31 ? 0 : 3,
+      // small or none
+      size: dateRangeDays.value > 31 ? 0 : 2,
       strokeWidth: 0,
-      hover: { size: 6 }
+      hover: { size: 7 }
     },
     grid: {
       show: true,
-      borderColor: '#f1f1f1',
-      strokeDashArray: 0,
+      borderColor: '#e0e0e0',
+      strokeDashArray: 2,
       position: 'back'
     },
     legend: {
       position: 'top',
-      horizontalAlign: 'right'
+      horizontalAlign: 'right',
+      labels: {
+        colors: '#222',
+        useSeriesColors: false,
+        fontWeight: 500
+      },
+      markers: {
+        width: 18,
+        height: 6,
+        radius: 2
+      }
     }
   };
 })
