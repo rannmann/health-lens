@@ -307,5 +307,33 @@ export class DbSeeder {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `).run();
+
+    // Create symptom table
+    testDb.prepare(`
+      CREATE TABLE IF NOT EXISTS symptom (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        name TEXT NOT NULL,
+        active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        deactivated_at DATETIME,
+        UNIQUE(user_id, name),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `).run();
+
+    // Create symptom_event table
+    testDb.prepare(`
+      CREATE TABLE IF NOT EXISTS symptom_event (
+        user_id TEXT,
+        timestamp TEXT,
+        symptom_id INTEGER,
+        severity INTEGER,
+        notes TEXT,
+        PRIMARY KEY(user_id, timestamp, symptom_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (symptom_id) REFERENCES symptom(id) ON DELETE CASCADE
+      )
+    `).run();
   }
 } 

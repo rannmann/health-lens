@@ -47,10 +47,19 @@ export interface MedicationEvent {
     notes: string;
 }
 
+export interface Symptom {
+    id: number;
+    name: string;
+    active: boolean;
+    created_at: string;
+    deactivated_at?: string | null;
+}
+
 export interface SymptomEvent {
-    id: string;
+    id: number;
     timestamp: string;
-    symptom: string;
+    symptom_id: number;
+    symptom_name: string;
     severity: number;
-    notes: string;
+    notes?: string;
 } 

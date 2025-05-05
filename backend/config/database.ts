@@ -146,15 +146,28 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
-    -- Symptom events
+    -- Symptom definitions (user and default)
+    CREATE TABLE IF NOT EXISTS symptom (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        name TEXT NOT NULL,
+        active INTEGER DEFAULT 1, -- 1 = active, 0 = inactive
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        deactivated_at DATETIME,
+        UNIQUE(user_id, name),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Symptom events (now references symptom_id)
     CREATE TABLE IF NOT EXISTS symptom_event (
         user_id TEXT,
         timestamp TEXT,
-        symptom TEXT,
+        symptom_id INTEGER,
         severity INTEGER,
         notes TEXT,
-        PRIMARY KEY(user_id, timestamp, symptom),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        PRIMARY KEY(user_id, timestamp, symptom_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (symptom_id) REFERENCES symptom(id) ON DELETE CASCADE
     );
 
     -- General notes

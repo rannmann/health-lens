@@ -1,81 +1,106 @@
 <template>
-  <div class="symptoms">
-    <h1>Symptoms</h1>
-    
-    <div class="symptom-form">
-      <h2>Log Symptom</h2>
-      <form @submit.prevent="addSymptom">
+  <div class="container symptoms-page">
+    <h1 class="symptoms__title">Symptoms</h1>
+
+    <BaseCard class="symptoms__card" title="Manage Symptoms">
+      <div class="symptom-lists grid" style="gap: var(--space-8); grid-template-columns: 1fr 1fr;">
+        <div class="active-symptoms">
+          <h3 class="symptoms__section-title">Active Symptoms</h3>
+          <ul>
+            <li v-for="symptom in activeSymptoms" :key="symptom.id" class="symptoms__item">
+              <span>{{ symptom.name }}</span>
+              <button class="button button--secondary" @click="deactivateSymptom(symptom.id)">Deactivate</button>
+              <button class="button button--secondary" @click="startRename(symptom)">Rename</button>
+            </li>
+          </ul>
+        </div>
+        <div class="inactive-symptoms">
+          <h3 class="symptoms__section-title">Inactive/Available Symptoms</h3>
+          <ul>
+            <li v-for="symptom in inactiveSymptoms" :key="symptom.id" class="symptoms__item">
+              <span>{{ symptom.name }}</span>
+              <button class="button button--primary" @click="activateSymptom(symptom.id)">Activate</button>
+              <button class="button button--secondary" @click="startRename(symptom)">Rename</button>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <form @submit.prevent="addSymptom" class="symptoms__add-form">
+        <input v-model="newSymptomName" class="input" placeholder="Add new symptom..." required />
+        <button type="submit" class="button button--primary">Add Symptom</button>
+      </form>
+      <div v-if="renamingSymptom" class="symptoms__rename-form">
+        <input v-model="renameValue" class="input" />
+        <button class="button button--primary" @click="confirmRename">Save</button>
+        <button class="button button--secondary" @click="cancelRename">Cancel</button>
+      </div>
+    </BaseCard>
+
+    <BaseCard class="symptoms__card" title="Log Symptom Event">
+      <form @submit.prevent="addSymptomEvent" class="symptoms__event-form">
         <div class="form-group">
           <label for="symptom">Symptom</label>
-          <input
-            id="symptom"
-            v-model="newSymptom.symptom"
-            type="text"
-            required
-            list="common-symptoms"
-          >
-          <datalist id="common-symptoms">
-            <option value="Headache"></option>
-            <option value="Fatigue"></option>
-            <option value="Nausea"></option>
-            <option value="Dizziness"></option>
-            <option value="Joint Pain"></option>
-            <option value="Muscle Pain"></option>
-            <option value="Fever"></option>
-            <option value="Cough"></option>
-          </datalist>
+          <select id="symptom" v-model="eventForm.symptom_id" class="input" required>
+            <option v-for="symptom in activeSymptoms" :key="symptom.id" :value="symptom.id">
+              {{ symptom.name }}
+            </option>
+          </select>
         </div>
-        
         <div class="form-group">
           <label for="severity">Severity (1-10)</label>
-          <div class="severity-input">
+          <div class="severity-input" style="display: flex; align-items: center; gap: var(--space-4);">
             <input
               id="severity"
-              v-model="newSymptom.severity"
+              v-model="eventForm.severity"
               type="range"
               min="1"
               max="10"
               required
+              style="flex: 1;"
             >
-            <span class="severity-value">{{ newSymptom.severity }}</span>
+            <span class="severity-value" style="min-width: 2.5rem; text-align: center;">{{ eventForm.severity }}</span>
           </div>
         </div>
-        
         <div class="form-group">
           <label for="timestamp">Date & Time</label>
           <input
             id="timestamp"
-            v-model="newSymptom.timestamp"
+            v-model="eventForm.timestamp"
             type="datetime-local"
+            class="input"
             required
           >
         </div>
-        
         <div class="form-group">
           <label for="notes">Notes</label>
           <textarea
             id="notes"
-            v-model="newSymptom.notes"
+            v-model="eventForm.notes"
             rows="3"
+            class="input"
             placeholder="Any additional details about the symptom..."
           ></textarea>
         </div>
-        
-        <button type="submit">Log Symptom</button>
+        <button type="submit" class="button button--primary">Log Symptom Event</button>
       </form>
-    </div>
-    
-    <div class="symptoms-list">
-      <div class="symptoms-header">
-        <h2>Symptom History</h2>
-        <div class="filter-controls">
+    </BaseCard>
+
+    <BaseCard class="symptoms__card" title="Symptom History">
+      <div class="symptoms-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-6);">
+        <div class="filter-controls" style="display: flex; gap: var(--space-4);">
+          <select v-model="filter.symptom_id" class="input">
+            <option value="">All Symptoms</option>
+            <option v-for="symptom in allSymptoms" :key="symptom.id" :value="symptom.id">
+              {{ symptom.name }}
+            </option>
+          </select>
           <input
             type="text"
-            v-model="searchTerm"
-            placeholder="Search symptoms..."
-            @input="filterSymptoms"
+            v-model="filter.search"
+            class="input"
+            placeholder="Search notes..."
           >
-          <select v-model="timeFilter" @change="filterSymptoms">
+          <select v-model="filter.time" class="input">
             <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="week">Past Week</option>
@@ -83,329 +108,251 @@
           </select>
         </div>
       </div>
-      
-      <div v-if="filteredSymptoms.length === 0" class="empty-state">
-        No symptoms logged yet.
+      <div v-if="filteredEvents.length === 0" class="empty-state text-secondary" style="text-align: center; padding: var(--space-8);">
+        No symptom events logged yet.
       </div>
-      
-      <div v-else class="symptom-timeline">
+      <div v-else class="symptom-timeline" style="display: flex; flex-direction: column; gap: var(--space-4);">
         <div
-          v-for="symptom in filteredSymptoms"
-          :key="symptom.id"
-          class="symptom-card"
-          :class="'severity-' + Math.ceil(symptom.severity / 2)"
+          v-for="event in filteredEvents"
+          :key="event.id"
+          class="symptom-card card"
+          :class="'severity-' + Math.ceil(event.severity / 2)"
+          style="border-left: 4px solid var(--primary-500);"
         >
-          <div class="symptom-header">
-            <h3>{{ symptom.symptom }}</h3>
-            <div class="symptom-actions">
-              <button @click="editSymptom(symptom)">Edit</button>
-              <button @click="deleteSymptom(symptom.id)">Delete</button>
+          <div class="symptom-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
+            <h3 class="text-lg" style="margin: 0;">{{ event.symptom_name }}</h3>
+            <div class="symptom-actions" style="display: flex; gap: var(--space-2);">
+              <button class="button button--secondary" @click="editEvent(event)">Edit</button>
+              <button class="button button--secondary" @click="deleteEvent(event.id)">Delete</button>
             </div>
           </div>
-          
           <div class="symptom-details">
-            <p class="severity-indicator">
+            <p class="severity-indicator" style="display: flex; align-items: center; gap: var(--space-2);">
               <strong>Severity:</strong>
-              <span class="severity-dots">
-                {{ "●".repeat(symptom.severity) }}
+              <span class="severity-dots" style="color: var(--error-500); letter-spacing: -1px;">
+                {{ '●'.repeat(event.severity) }}
               </span>
-              {{ symptom.severity }}/10
+              {{ event.severity }}/10
             </p>
-            <p><strong>Date:</strong> {{ formatDateTime(symptom.timestamp) }}</p>
-            <p v-if="symptom.notes" class="symptom-notes">
-              {{ symptom.notes }}
+            <p><strong>Date:</strong> {{ formatDateTime(event.timestamp) }}</p>
+            <p v-if="event.notes" class="symptom-notes text-secondary" style="margin-top: var(--space-2); border-top: 1px solid var(--border-light); font-style: italic; padding-top: var(--space-2);">
+              {{ event.notes }}
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { format, subDays, isWithinInterval, startOfToday, endOfToday, parseISO } from 'date-fns'
+import type { Symptom, SymptomEvent } from '@/types'
+import BaseCard from '@/components/BaseCard.vue'
 
-interface Symptom {
-  id: string
-  symptom: string
-  severity: number
-  timestamp: string
-  notes?: string
-}
+const allSymptoms = ref<Symptom[]>([])
+const activeSymptoms = computed(() => allSymptoms.value.filter(s => s.active))
+const inactiveSymptoms = computed(() => allSymptoms.value.filter(s => !s.active))
 
-const symptoms = ref<Symptom[]>([])
-const searchTerm = ref('')
-const timeFilter = ref('all')
+const newSymptomName = ref('')
+const renamingSymptom = ref<Symptom | null>(null)
+const renameValue = ref('')
 
-const newSymptom = ref<Omit<Symptom, 'id'>>({
-  symptom: '',
+const eventForm = ref({
+  symptom_id: '',
   severity: 5,
   timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   notes: ''
 })
 
-const filteredSymptoms = computed(() => {
-  let filtered = [...symptoms.value]
-  
-  // Apply search filter
-  if (searchTerm.value) {
-    const search = searchTerm.value.toLowerCase()
-    filtered = filtered.filter(s => 
-      s.symptom.toLowerCase().includes(search) ||
-      s.notes?.toLowerCase().includes(search)
-    )
+const events = ref<SymptomEvent[]>([])
+const filter = ref({
+  symptom_id: '',
+  search: '',
+  time: 'all'
+})
+
+const fetchSymptoms = async () => {
+  const res = await fetch('/api/symptom/list')
+  if (res.ok) {
+    allSymptoms.value = await res.json()
   }
-  
-  // Apply time filter
+}
+
+const fetchEvents = async () => {
+  let url = '/api/symptom/event'
+  const params = []
+  if (filter.value.symptom_id) params.push(`symptom_id=${filter.value.symptom_id}`)
+  // Optionally add date filtering here
+  if (params.length) url += '?' + params.join('&')
+  const res = await fetch(url)
+  if (res.ok) {
+    events.value = await res.json()
+  }
+}
+
+const addSymptom = async () => {
+  if (!newSymptomName.value.trim()) return
+  const res = await fetch('/api/symptom/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newSymptomName.value.trim() })
+  })
+  if (res.ok) {
+    newSymptomName.value = ''
+    await fetchSymptoms()
+  }
+}
+
+const activateSymptom = async (id: number) => {
+  await fetch(`/api/symptom/${id}/activate`, { method: 'POST' })
+  await fetchSymptoms()
+}
+
+const deactivateSymptom = async (id: number) => {
+  await fetch(`/api/symptom/${id}/deactivate`, { method: 'POST' })
+  await fetchSymptoms()
+}
+
+const startRename = (symptom: Symptom) => {
+  renamingSymptom.value = symptom
+  renameValue.value = symptom.name
+}
+const confirmRename = async () => {
+  if (!renamingSymptom.value) return
+  await fetch(`/api/symptom/${renamingSymptom.value.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: renameValue.value })
+  })
+  renamingSymptom.value = null
+  renameValue.value = ''
+  await fetchSymptoms()
+}
+const cancelRename = () => {
+  renamingSymptom.value = null
+  renameValue.value = ''
+}
+
+const addSymptomEvent = async () => {
+  if (!eventForm.value.symptom_id) return
+  const res = await fetch('/api/symptom/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...eventForm.value,
+      severity: Number(eventForm.value.severity)
+    })
+  })
+  if (res.ok) {
+    eventForm.value = {
+      symptom_id: '',
+      severity: 5,
+      timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      notes: ''
+    }
+    await fetchEvents()
+  }
+}
+
+const editEvent = (event: SymptomEvent) => {
+  // Implement edit event logic (modal, etc.)
+  alert('Edit event not implemented yet')
+}
+const deleteEvent = async (id: number) => {
+  if (confirm('Are you sure you want to delete this symptom event?')) {
+    await fetch(`/api/symptom/event/${id}`, { method: 'DELETE' })
+    await fetchEvents()
+  }
+}
+
+const filteredEvents = computed(() => {
+  let filtered = [...events.value]
+  if (filter.value.symptom_id) {
+    filtered = filtered.filter(e => e.symptom_id === Number(filter.value.symptom_id))
+  }
+  if (filter.value.search) {
+    const search = filter.value.search.toLowerCase()
+    filtered = filtered.filter(e => e.notes?.toLowerCase().includes(search))
+  }
   const now = new Date()
-  switch (timeFilter.value) {
+  switch (filter.value.time) {
     case 'today':
-      filtered = filtered.filter(s => 
-        isWithinInterval(parseISO(s.timestamp), {
+      filtered = filtered.filter(e =>
+        isWithinInterval(parseISO(e.timestamp), {
           start: startOfToday(),
           end: endOfToday()
         })
       )
       break
     case 'week':
-      filtered = filtered.filter(s => 
-        parseISO(s.timestamp) > subDays(now, 7)
+      filtered = filtered.filter(e =>
+        parseISO(e.timestamp) > subDays(now, 7)
       )
       break
     case 'month':
-      filtered = filtered.filter(s => 
-        parseISO(s.timestamp) > subDays(now, 30)
+      filtered = filtered.filter(e =>
+        parseISO(e.timestamp) > subDays(now, 30)
       )
       break
   }
-  
-  // Sort by timestamp, most recent first
-  return filtered.sort((a, b) => 
+  return filtered.sort((a, b) =>
     parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime()
   )
 })
-
-const fetchSymptoms = async () => {
-  try {
-    const response = await fetch('/api/symptom')
-    if (response.ok) {
-      symptoms.value = await response.json()
-    }
-  } catch (error) {
-    console.error('Error fetching symptoms:', error)
-  }
-}
-
-const addSymptom = async () => {
-  try {
-    const response = await fetch('/api/symptom', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(newSymptom.value)
-    })
-    
-    if (response.ok) {
-      await fetchSymptoms()
-      // Reset form
-      newSymptom.value = {
-        symptom: '',
-        severity: 5,
-        timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-        notes: ''
-      }
-    }
-  } catch (error) {
-    console.error('Error adding symptom:', error)
-  }
-}
-
-const editSymptom = (symptom: Symptom) => {
-  // Implement edit functionality
-  console.log('Edit symptom:', symptom)
-}
-
-const deleteSymptom = async (id: string) => {
-  if (confirm('Are you sure you want to delete this symptom entry?')) {
-    try {
-      const response = await fetch(`/api/symptom/${id}`, {
-        method: 'DELETE'
-      })
-      
-      if (response.ok) {
-        await fetchSymptoms()
-      }
-    } catch (error) {
-      console.error('Error deleting symptom:', error)
-    }
-  }
-}
 
 const formatDateTime = (timestamp: string) => {
   return format(parseISO(timestamp), 'MMM d, yyyy h:mm a')
 }
 
-const filterSymptoms = () => {
-  // Implement filter functionality
-  console.log('Filter symptoms')
-}
-
-onMounted(() => {
-  fetchSymptoms()
+onMounted(async () => {
+  await fetchSymptoms()
+  await fetchEvents()
 })
 </script>
 
 <style scoped>
-.symptoms {
-  padding: 2rem;
-  max-width: 1200px;
+.symptoms-page {
+  max-width: var(--container-lg);
   margin: 0 auto;
+  padding: var(--space-8) var(--space-4);
 }
 
-.symptom-form {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+.symptoms__title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
 }
 
-.form-group {
-  margin-bottom: 1rem;
+.symptoms__section-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
 }
 
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
+.symptoms__card {
+  margin-bottom: var(--space-8);
 }
 
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.severity-input {
+.symptoms__item {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
 }
 
-.severity-input input[type="range"] {
-  flex: 1;
-}
-
-.severity-value {
-  min-width: 2.5rem;
-  text-align: center;
-}
-
-button {
-  background: #4CAF50;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-button:hover {
-  background: #45a049;
-}
-
-.symptoms-list {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.symptoms-header {
+.symptoms__add-form {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 
-.filter-controls {
+.symptoms__rename-form {
   display: flex;
-  gap: 1rem;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
-
-.filter-controls input,
-.filter-controls select {
-  width: auto;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-}
-
-.symptom-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.symptom-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.symptom-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.symptom-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.symptom-actions button {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
-}
-
-.symptom-details p {
-  margin: 0.5rem 0;
-}
-
-.severity-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.severity-dots {
-  color: #ff4560;
-  letter-spacing: -1px;
-}
-
-.symptom-notes {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
-  font-style: italic;
-}
-
-/* Severity color classes */
-.severity-1 { border-left: 4px solid #00E396; }
-.severity-2 { border-left: 4px solid #FEB019; }
-.severity-3 { border-left: 4px solid #FF4560; }
-.severity-4 { border-left: 4px solid #775DD0; }
-.severity-5 { border-left: 4px solid #FF0000; }
 </style> 
