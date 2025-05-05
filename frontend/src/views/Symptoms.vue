@@ -150,6 +150,7 @@ import { ref, computed, onMounted } from 'vue'
 import { format, subDays, isWithinInterval, startOfToday, endOfToday, parseISO } from 'date-fns'
 import type { Symptom, SymptomEvent } from '@/types'
 import BaseCard from '@/components/BaseCard.vue'
+import api from '../api/axios'
 
 const allSymptoms = ref<Symptom[]>([])
 const activeSymptoms = computed(() => allSymptoms.value.filter(s => s.active))
@@ -174,44 +175,34 @@ const filter = ref({
 })
 
 const fetchSymptoms = async () => {
-  const res = await fetch('/api/symptom/list')
-  if (res.ok) {
-    allSymptoms.value = await res.json()
-  }
+  const res = await api.get('/symptom/list')
+  allSymptoms.value = res.data
 }
 
 const fetchEvents = async () => {
-  let url = '/api/symptom/event'
-  const params = []
-  if (filter.value.symptom_id) params.push(`symptom_id=${filter.value.symptom_id}`)
+  const params: any = {}
+  if (filter.value.symptom_id) params.symptom_id = filter.value.symptom_id
   // Optionally add date filtering here
-  if (params.length) url += '?' + params.join('&')
-  const res = await fetch(url)
-  if (res.ok) {
-    events.value = await res.json()
-  }
+  const res = await api.get('/symptom/event', { params })
+  events.value = res.data
 }
 
 const addSymptom = async () => {
   if (!newSymptomName.value.trim()) return
-  const res = await fetch('/api/symptom/add', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newSymptomName.value.trim() })
-  })
-  if (res.ok) {
+  const res = await api.post('/symptom/add', { name: newSymptomName.value.trim() })
+  if (res.status === 200) {
     newSymptomName.value = ''
     await fetchSymptoms()
   }
 }
 
 const activateSymptom = async (id: number) => {
-  await fetch(`/api/symptom/${id}/activate`, { method: 'POST' })
+  await api.post(`/symptom/${id}/activate`)
   await fetchSymptoms()
 }
 
 const deactivateSymptom = async (id: number) => {
-  await fetch(`/api/symptom/${id}/deactivate`, { method: 'POST' })
+  await api.post(`/symptom/${id}/deactivate`)
   await fetchSymptoms()
 }
 
@@ -221,11 +212,7 @@ const startRename = (symptom: Symptom) => {
 }
 const confirmRename = async () => {
   if (!renamingSymptom.value) return
-  await fetch(`/api/symptom/${renamingSymptom.value.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: renameValue.value })
-  })
+  await api.put(`/symptom/${renamingSymptom.value.id}`, { name: renameValue.value })
   renamingSymptom.value = null
   renameValue.value = ''
   await fetchSymptoms()
@@ -237,15 +224,11 @@ const cancelRename = () => {
 
 const addSymptomEvent = async () => {
   if (!eventForm.value.symptom_id) return
-  const res = await fetch('/api/symptom/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...eventForm.value,
-      severity: Number(eventForm.value.severity)
-    })
+  const res = await api.post('/symptom/event', {
+    ...eventForm.value,
+    severity: Number(eventForm.value.severity)
   })
-  if (res.ok) {
+  if (res.status === 200) {
     eventForm.value = {
       symptom_id: '',
       severity: 5,
@@ -262,7 +245,7 @@ const editEvent = (event: SymptomEvent) => {
 }
 const deleteEvent = async (id: number) => {
   if (confirm('Are you sure you want to delete this symptom event?')) {
-    await fetch(`/api/symptom/event/${id}`, { method: 'DELETE' })
+    await api.delete(`/symptom/event/${id}`)
     await fetchEvents()
   }
 }

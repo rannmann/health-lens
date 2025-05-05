@@ -9,6 +9,7 @@ import {
     processEndpointData,
     endpointFetchers
 } from '../services/fitbit/fitbitService';
+import { userIdMiddleware } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -113,12 +114,15 @@ router.get('/callback', async (req: Request, res: Response) => {
     }
 });
 
+// Apply userIdMiddleware to all routes below
+router.use(userIdMiddleware);
+
 // Add a lock map to prevent concurrent backfills
 const backfillLocks = new Map<string, boolean>();
 
 // Modify the backfill endpoint to use the enhanced rate limiting
-router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
+router.post('/backfill', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
     const { startDate, endpoints, customEndDate } = req.body;
 
     if (!startDate) {
@@ -230,8 +234,8 @@ router.post('/backfill/:userId', async (req: Request<{ userId: string }>, res: R
 });
 
 // Add this endpoint to check backfill progress
-router.get('/backfill-status/:userId', async (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
+router.get('/backfill-status', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
 
     try {
         const progress = db.prepare(`
@@ -247,8 +251,8 @@ router.get('/backfill-status/:userId', async (req: Request<{ userId: string }>, 
     }
 });
 
-router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
+router.get('/sync', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
     // Use query params if provided
     const { startDate: queryStart, endDate: queryEnd } = req.query;
     try {
@@ -327,44 +331,9 @@ router.get('/sync/:userId', async (req: Request<{ userId: string }>, res: Respon
     }
 });
 
-// Refactored individual metric endpoint to use endpointFetchers
-router.get('/:userId/:metric', async (req: Request<{ userId: string; metric: string }>, res: Response) => {
-    const { userId, metric } = req.params;
-    const { startDate, endDate } = req.query;
-
-    try {
-        const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
-        // Map metric to endpointKey
-        const metricMap: Record<string, string> = {
-            'heart-rate': 'heart',
-            'steps': 'steps',
-            'sleep': 'sleep',
-            'hrv': 'hrv',
-            'spo2': 'spo2',
-            'temperature': 'temperature',
-            'azm': 'azm',
-            'breathing': 'breathing'
-        };
-        const endpointKey = metricMap[metric];
-        const fetcher = endpointFetchers[endpointKey];
-        if (!fetcher) {
-            return res.status(400).json({ error: 'Invalid metric' });
-        }
-        const data = await fetcher(fitbit_user_id, access_token, startDate as string, endDate as string, userId);
-        res.json(data);
-    } catch (error) {
-        console.error(`Fitbit ${metric} fetch error:`, error);
-        if (axios.isAxiosError(error) && error.response?.status === 429) {
-            res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
-        } else {
-            res.status(500).json({ error: `Failed to fetch ${metric} data` });
-        }
-    }
-});
-
 // Check connection status
 router.get('/status', async (req: Request, res: Response) => {
-    const { userId } = req.query;
+    const userId = (req as any).userId;
 
     if (!userId) {
         return res.status(400).json({ error: 'User ID is required' });
@@ -421,7 +390,7 @@ router.get('/status', async (req: Request, res: Response) => {
 
 // Disconnect Fitbit
 router.post('/disconnect', async (req: Request, res: Response) => {
-    const { userId } = req.body;
+    const userId = (req as any).userId;
     
     if (!userId) {
         return res.status(400).json({ error: 'User ID is required' });
@@ -436,6 +405,40 @@ router.post('/disconnect', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Fitbit disconnect error:', error);
         res.status(500).json({ error: 'Failed to disconnect Fitbit' });
+    }
+});
+
+router.get('/:metric', async (req: Request<{ metric: string }>, res: Response) => {
+    const userId = (req as any).userId;
+    const { startDate, endDate } = req.query;
+
+    try {
+        const { access_token, fitbit_user_id } = await getValidAccessToken(userId);
+        // Map metric to endpointKey
+        const metricMap: Record<string, string> = {
+            'heart-rate': 'heart',
+            'steps': 'steps',
+            'sleep': 'sleep',
+            'hrv': 'hrv',
+            'spo2': 'spo2',
+            'temperature': 'temperature',
+            'azm': 'azm',
+            'breathing': 'breathing'
+        };
+        const endpointKey = metricMap[req.params.metric];
+        const fetcher = endpointFetchers[endpointKey];
+        if (!fetcher) {
+            return res.status(400).json({ error: 'Invalid metric' });
+        }
+        const data = await fetcher(fitbit_user_id, access_token, startDate as string, endDate as string, userId);
+        res.json(data);
+    } catch (error) {
+        console.error(`Fitbit ${req.params.metric} fetch error:`, error);
+        if (axios.isAxiosError(error) && error.response?.status === 429) {
+            res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
+        } else {
+            res.status(500).json({ error: `Failed to fetch ${req.params.metric} data` });
+        }
     }
 });
 

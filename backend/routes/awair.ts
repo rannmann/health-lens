@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import axios from 'axios';
 import db from '../config/database';
+import { userIdMiddleware } from '../middleware/auth';
 
 interface AwairSettings {
     token: string | null;
@@ -8,10 +9,13 @@ interface AwairSettings {
 
 const router = express.Router();
 
+// Apply userIdMiddleware to all routes
+router.use(userIdMiddleware);
+
 // Get Awair connection status and settings
 router.get('/status', async (req: Request, res: Response) => {
     try {
-        const { userId } = req.query;
+        const userId = (req as any).userId;
         if (!userId) {
             return res.status(400).json({ error: 'userId is required' });
         }
@@ -73,6 +77,7 @@ router.get('/devices', async (req: Request, res: Response) => {
 router.get('/sync/:deviceId', async (req: Request<{ deviceId: string }>, res: Response) => {
     const { deviceId } = req.params;
     const { startDate, endDate } = req.query;
+    const userId = (req as any).userId;
 
     try {
         const response = await axios.get(
@@ -98,7 +103,7 @@ router.get('/sync/:deviceId', async (req: Request<{ deviceId: string }>, res: Re
 
         response.data.data.forEach((reading: any) => {
             stmt.run(
-                'default_user', // In a real app, you'd use the actual user ID
+                userId, // Use the actual user ID
                 deviceId,
                 reading.timestamp,
                 reading.score,
@@ -120,7 +125,8 @@ router.get('/sync/:deviceId', async (req: Request<{ deviceId: string }>, res: Re
 // Save Awair settings
 router.post('/settings', async (req: Request, res: Response) => {
     try {
-        const { userId, token } = req.body;
+        const { token } = req.body;
+        const userId = (req as any).userId;
         if (!userId || !token) {
             return res.status(400).json({ error: 'userId and token are required' });
         }

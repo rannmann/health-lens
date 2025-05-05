@@ -283,7 +283,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { format } from 'date-fns';
-import axios from 'axios';
+import api from '../api/axios';
 import BaseCard from '../components/BaseCard.vue';
 
 const fitbitConnected = ref(false);
@@ -346,8 +346,7 @@ async function connectFitbit() {
 
 async function disconnectFitbit() {
   try {
-    const userId = localStorage.getItem('userId');
-    await axios.post('/api/fitbit/disconnect', { userId });
+    await api.post('/fitbit/disconnect');
     fitbitConnected.value = false;
     fitbitLastSync.value = '';
     localStorage.removeItem('userId');
@@ -363,17 +362,12 @@ async function syncFitbit() {
     // Get last 30 days of data by default
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    const userId = localStorage.getItem('userId');
-    const response = await axios.get(`/api/fitbit/sync/${userId}`, {
+    const response = await api.get('/fitbit/sync', {
       params: { startDate, endDate }
     });
-
-    // If we get a needsBackfill response but no error, that's okay - we still synced recent data
     if (response.data.needsBackfill) {
       console.log('Note: Historical data not found. Consider running backfill for complete history.');
     }
-    
     fitbitLastSync.value = new Date().toISOString();
   } catch (error) {
     console.error('Failed to sync Fitbit data:', error);
@@ -387,13 +381,12 @@ async function runBackfill() {
   isBackfilling.value = true;
   backfillProgress.value = [];
   try {
-    const userId = localStorage.getItem('userId');
     const startDate = backfillStartDate.value;
     const customEndDate = backfillEndDate.value || undefined;
-    await axios.post(`/api/fitbit/backfill/${userId}`, { startDate, customEndDate });
+    await api.post('/fitbit/backfill', { startDate, customEndDate });
     // Poll for backfill status
     const checkStatus = async () => {
-      const response = await axios.get(`/api/fitbit/backfill-status/${userId}`);
+      const response = await api.get('/fitbit/backfill-status');
       const { progress } = response.data;
       backfillProgress.value = progress;
       const isComplete = progress.every((p: any) => 
@@ -417,13 +410,12 @@ async function runBackfill() {
 async function retryFailedEndpoints() {
   isBackfilling.value = true;
   try {
-    const userId = localStorage.getItem('userId');
     const startDate = backfillStartDate.value;
     const customEndDate = backfillEndDate.value || undefined;
-    await axios.post(`/api/fitbit/backfill/${userId}`, { startDate, customEndDate, endpoints: failedEndpoints.value });
+    await api.post('/fitbit/backfill', { startDate, customEndDate, endpoints: failedEndpoints.value });
     // Poll for backfill status
     const checkStatus = async () => {
-      const response = await axios.get(`/api/fitbit/backfill-status/${userId}`);
+      const response = await api.get('/fitbit/backfill-status');
       const { progress } = response.data;
       backfillProgress.value = progress;
       const isComplete = progress.every((p: any) => 
@@ -447,27 +439,17 @@ async function retryFailedEndpoints() {
 async function syncWeather() {
   isSyncing.value = true;
   try {
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      throw new Error('No user ID found');
-    }
-
     // Sync last 7 days by default
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       .toISOString()
       .split('T')[0];
-
-    await axios.post('/api/weather/sync', {
-      userId,
+    await api.post('/weather/sync', {
       startDate,
       endDate
     });
-
     // Refresh status
-    const response = await axios.get('/api/weather/status', {
-      params: { userId }
-    });
+    const response = await api.get('/weather/status');
     weatherSyncStatus.value = response.data.syncStatus;
   } catch (error) {
     console.error('Failed to sync weather data:', error);
@@ -480,27 +462,17 @@ async function syncWeather() {
 async function runWeatherBackfill() {
   isSyncing.value = true;
   try {
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      throw new Error('No user ID found');
-    }
-
     // Start backfill from 1 year ago by default
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
       .toISOString()
       .split('T')[0];
-
-    await axios.post('/api/weather/sync', {
-      userId,
+    await api.post('/weather/sync', {
       startDate,
       endDate
     });
-
     // Refresh status
-    const response = await axios.get('/api/weather/status', {
-      params: { userId }
-    });
+    const response = await api.get('/weather/status');
     weatherSyncStatus.value = response.data.syncStatus;
   } catch (error) {
     console.error('Failed to run weather backfill:', error);
@@ -514,55 +486,42 @@ async function runWeatherBackfill() {
 onMounted(async () => {
   isLoading.value = true;
   try {
-    // Load Fitbit status
-    const userId = localStorage.getItem('userId');
-    if (userId) {
-      const [fitbitResponse, awairResponse, weatherResponse, backfillStatusResponse] = await Promise.all([
-        axios.get('/api/fitbit/status', { params: { userId } }),
-        axios.get('/api/awair/status', { params: { userId } }),
-        axios.get('/api/weather/status', { params: { userId } }),
-        axios.get(`/api/fitbit/backfill-status/${userId}`)
-      ]);
-
-      // Update Fitbit status
-      fitbitConnected.value = fitbitResponse.data.connected;
-      // Always update progress table
-      backfillProgress.value = backfillStatusResponse.data.progress || [];
-      if (fitbitResponse.data.lastSync) {
-        fitbitLastSync.value = fitbitResponse.data.lastSync;
-      }
-
-      // Update Awair status
-      awairConnected.value = awairResponse.data.connected;
-      if (awairResponse.data.token) {
-        awairToken.value = awairResponse.data.token;
-      }
-      if (awairResponse.data.devices) {
-        awairDevices.value = awairResponse.data.devices;
-      }
-
-      // Update Weather status
-      weatherConnected.value = weatherResponse.data.connected;
-      if (weatherResponse.data.zipCode) {
-        zipCode.value = weatherResponse.data.zipCode;
-      }
-      if (weatherResponse.data.apiKey) {
-        weatherApiKey.value = weatherResponse.data.apiKey;
-      }
-      if (weatherResponse.data.syncStatus) {
-        weatherSyncStatus.value = weatherResponse.data.syncStatus;
-      }
+    const [fitbitResponse, awairResponse, weatherResponse, backfillStatusResponse] = await Promise.all([
+      api.get('/fitbit/status'),
+      api.get('/awair/status'),
+      api.get('/weather/status'),
+      api.get('/fitbit/backfill-status')
+    ]);
+    fitbitConnected.value = fitbitResponse.data.connected;
+    backfillProgress.value = backfillStatusResponse.data.progress || [];
+    if (fitbitResponse.data.lastSync) {
+      fitbitLastSync.value = fitbitResponse.data.lastSync;
     }
-    
+    awairConnected.value = awairResponse.data.connected;
+    if (awairResponse.data.token) {
+      awairToken.value = awairResponse.data.token;
+    }
+    if (awairResponse.data.devices) {
+      awairDevices.value = awairResponse.data.devices;
+    }
+    weatherConnected.value = weatherResponse.data.connected;
+    if (weatherResponse.data.zipCode) {
+      zipCode.value = weatherResponse.data.zipCode;
+    }
+    if (weatherResponse.data.apiKey) {
+      weatherApiKey.value = weatherResponse.data.apiKey;
+    }
+    if (weatherResponse.data.syncStatus) {
+      weatherSyncStatus.value = weatherResponse.data.syncStatus;
+    }
     // Handle Fitbit OAuth callback
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const error = urlParams.get('error');
-    
     if (code) {
       isConnecting.value = true;
       try {
-        const response = await axios.get('/api/fitbit/callback', { params: { code } });
+        const response = await api.get('/fitbit/callback', { params: { code } });
         if (response.data.success) {
           fitbitConnected.value = true;
           localStorage.setItem('userId', response.data.userId);
@@ -589,22 +548,12 @@ onMounted(async () => {
 async function saveAwairSettings() {
   isSaving.value = true;
   try {
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      throw new Error('No user ID found');
-    }
-
-    const response = await axios.post('/api/awair/settings', {
-      userId,
+    const response = await api.post('/awair/settings', {
       token: awairToken.value
     });
-
     if (response.data.success) {
       awairConnected.value = true;
-      // Refresh devices list
-      const statusResponse = await axios.get('/api/awair/status', {
-        params: { userId }
-      });
+      const statusResponse = await api.get('/awair/status');
       awairDevices.value = statusResponse.data.devices || [];
     }
   } catch (error) {
@@ -619,17 +568,10 @@ async function saveAwairSettings() {
 async function saveWeatherSettings() {
   isSaving.value = true;
   try {
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      throw new Error('No user ID found');
-    }
-
-    const response = await axios.post('/api/weather/settings', {
-      userId,
+    const response = await api.post('/weather/settings', {
       zipCode: zipCode.value,
       apiKey: weatherApiKey.value
     });
-
     if (response.data.success) {
       weatherConnected.value = true;
     }

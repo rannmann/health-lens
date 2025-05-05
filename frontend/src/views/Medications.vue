@@ -69,6 +69,7 @@ import type {
   FrequencySchedule,
   MedicationSchedule 
 } from '../types/medication';
+import api from '../api/axios';
 
 const router = useRouter();
 const medications = ref<Medication[]>([]);
@@ -76,10 +77,8 @@ const isAddingMedication = ref(false);
 
 const fetchMedications = async () => {
   try {
-    const response = await fetch('/api/medications');
-    if (response.ok) {
-      medications.value = await response.json();
-    }
+    const response = await api.get('/medications');
+    medications.value = response.data;
   } catch (error) {
     console.error('Error fetching medications:', error);
   }
@@ -87,18 +86,9 @@ const fetchMedications = async () => {
 
 const handleMedicationSave = async (medicationSchedule: MedicationSchedule) => {
   try {
-    const response = await fetch('/api/medications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(medicationSchedule)
-    });
-    
-    if (response.ok) {
-      await fetchMedications();
-      isAddingMedication.value = false;
-    }
+    const response = await api.post('/medications', medicationSchedule);
+    await fetchMedications();
+    isAddingMedication.value = false;
   } catch (error) {
     console.error('Error adding medication:', error);
   }
@@ -111,13 +101,8 @@ const editMedication = (medication: Medication) => {
 const deleteMedication = async (id: string) => {
   if (confirm('Are you sure you want to delete this medication?')) {
     try {
-      const response = await fetch(`/api/medications/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        await fetchMedications();
-      }
+      await api.delete(`/medications/${id}`);
+      await fetchMedications();
     } catch (error) {
       console.error('Error deleting medication:', error);
     }

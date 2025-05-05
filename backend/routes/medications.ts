@@ -2,12 +2,16 @@ import express, { Request, Response } from 'express';
 import db from '../config/database';
 import { format, parseISO } from 'date-fns';
 import type { MedicationSchedule } from '../../frontend/src/types/medication';
+import { userIdMiddleware } from '../middleware/auth';
 
 const router = express.Router();
 
+// Apply userIdMiddleware to all routes
+router.use(userIdMiddleware);
+
 // Get all medications for a user within a date range
-router.get('/:userId', async (req: Request, res: Response) => {
-    const { userId } = req.params;
+router.get('/', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
     const { startDate, endDate } = req.query;
 
     try {
@@ -26,8 +30,8 @@ router.get('/:userId', async (req: Request, res: Response) => {
 });
 
 // Add a new medication event
-router.post('/:userId', async (req: Request, res: Response) => {
-    const { userId } = req.params;
+router.post('/', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
     const { name, action, dose, notes, timestamp } = req.body;
 
     try {
@@ -47,8 +51,9 @@ router.post('/:userId', async (req: Request, res: Response) => {
 });
 
 // Update a medication event
-router.put('/:userId/:timestamp/:name', async (req: Request, res: Response) => {
-    const { userId, timestamp, name } = req.params;
+router.put('/:timestamp/:name', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
+    const { timestamp, name } = req.params;
     const { action, dose, notes } = req.body;
 
     try {
@@ -66,8 +71,9 @@ router.put('/:userId/:timestamp/:name', async (req: Request, res: Response) => {
 });
 
 // Delete a medication event
-router.delete('/:userId/:timestamp/:name', async (req: Request, res: Response) => {
-    const { userId, timestamp, name } = req.params;
+router.delete('/:timestamp/:name', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
+    const { timestamp, name } = req.params;
 
     try {
         db.prepare(`
@@ -83,7 +89,8 @@ router.delete('/:userId/:timestamp/:name', async (req: Request, res: Response) =
 });
 
 // Get all medications
-router.get('/', async (req, res) => {
+router.get('/all', async (req, res) => {
+  const userId = (req as any).userId;
   try {
     const medications = await db.all(`
       SELECT 
@@ -104,7 +111,7 @@ router.get('/', async (req, res) => {
       FROM medications m
       WHERE user_id = ?
       ORDER BY m.name
-    `, ['default_user']); // TODO: Replace with actual user ID
+    `, [userId]);
 
     // Parse JSON fields
     const parsedMedications = medications.map(med => ({
@@ -136,7 +143,8 @@ router.get('/', async (req, res) => {
 });
 
 // Add new medication
-router.post('/', async (req, res) => {
+router.post('/all', async (req, res) => {
+  const userId = (req as any).userId;
   try {
     const medicationSchedule: MedicationSchedule = req.body;
     const { medication, dose, schedule } = medicationSchedule;
@@ -159,7 +167,7 @@ router.post('/', async (req, res) => {
         schedule_interval_unit
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      'default_user', // TODO: Replace with actual user ID
+      userId,
       medication.name,
       medication.notes,
       dose.amount,
@@ -191,10 +199,11 @@ router.post('/', async (req, res) => {
 
 // Delete medication
 router.delete('/:id', async (req, res) => {
+  const userId = (req as any).userId;
   try {
     await db.run('DELETE FROM medications WHERE id = ? AND user_id = ?', [
       req.params.id,
-      'default_user' // TODO: Replace with actual user ID
+      userId
     ]);
     res.status(204).send();
   } catch (error) {

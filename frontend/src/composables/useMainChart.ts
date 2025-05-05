@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/user';
 import { format, subDays } from 'date-fns';
+import api from '../api/axios';
 
 // Add interfaces for our data types
 interface MetricDataPoint {
@@ -281,17 +282,13 @@ export function useMainChart() {
       const metric2 = primaryMetric2.value ? METRIC_MAPPINGS[primaryMetric2.value as keyof typeof METRIC_MAPPINGS] : null;
       if (!metric1) return;
       const metricsParam = metric2 ? `${metric1},${metric2}` : metric1;
-      const url = `/api/health/${userStore.userId}/metrics`;
-      const params = new URLSearchParams({
+      const params = {
         startDate: startDate.value,
         endDate: endDate.value,
         metrics: metricsParam
-      });
-      const response = await fetch(`${url}?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch metrics');
-      }
-      const { data } = await response.json();
+      };
+      const response = await api.get('/health/metrics', { params });
+      const { data } = response.data;
       if (!data || !Array.isArray(data) || data.length === 0) {
         primaryChartSeries.value = [];
         return;

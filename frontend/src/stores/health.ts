@@ -17,7 +17,7 @@ export const useHealthStore = defineStore('health', {
         async fetchDailySummaries(startDate: string, endDate: string) {
             this.loading = true;
             try {
-                const response = await api.get(`/api/fitbit/sync/default_user`, {
+                const response = await api.get('/fitbit/sync', {
                     params: { startDate, endDate }
                 });
                 this.dailySummaries = response.data;
@@ -32,7 +32,7 @@ export const useHealthStore = defineStore('health', {
         async fetchAwairReadings(deviceId: string, startDate: string, endDate: string) {
             this.loading = true;
             try {
-                const response = await api.get(`/api/awair/sync/${deviceId}`, {
+                const response = await api.get(`/awair/sync/${deviceId}`, {
                     params: { startDate, endDate }
                 });
                 this.awairReadings = response.data;
@@ -47,7 +47,7 @@ export const useHealthStore = defineStore('health', {
         async fetchWeatherReadings(startDate: string, endDate: string) {
             this.loading = true;
             try {
-                const response = await api.get('/api/weather/history', {
+                const response = await api.get('/weather/history', {
                     params: { startDate, endDate }
                 });
                 this.weatherReadings = response.data;
@@ -62,7 +62,7 @@ export const useHealthStore = defineStore('health', {
         async fetchMedicationEvents(startDate: string, endDate: string) {
             this.loading = true;
             try {
-                const response = await api.get('/api/medications', {
+                const response = await api.get('/medications', {
                     params: { startDate, endDate }
                 });
                 this.medicationEvents = response.data;
@@ -77,7 +77,7 @@ export const useHealthStore = defineStore('health', {
         async fetchSymptomEvents(startDate: string, endDate: string) {
             this.loading = true;
             try {
-                const response = await api.get('/api/symptoms', {
+                const response = await api.get('/symptom', {
                     params: { startDate, endDate }
                 });
                 this.symptomEvents = response.data;
@@ -91,7 +91,7 @@ export const useHealthStore = defineStore('health', {
 
         async addMedicationEvent(event: Omit<MedicationEvent, 'id'>) {
             try {
-                const response = await api.post('/api/medications', event);
+                const response = await api.post('/medications', event);
                 this.medicationEvents.push(response.data);
             } catch (error) {
                 this.error = 'Failed to add medication event';
@@ -101,7 +101,7 @@ export const useHealthStore = defineStore('health', {
 
         async addSymptomEvent(event: Omit<SymptomEvent, 'id'>) {
             try {
-                const response = await api.post('/api/symptoms', event);
+                const response = await api.post('/symptom', event);
                 this.symptomEvents.push(response.data);
             } catch (error) {
                 this.error = 'Failed to add symptom event';

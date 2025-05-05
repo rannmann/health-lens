@@ -1,15 +1,19 @@
 import express, { Request, Response } from 'express';
 import prodDb from '../config/database';
 import testDb from '../config/database.test';
+import { userIdMiddleware } from '../middleware/auth';
 
 // Use test database if in test environment
 const db = process.env.NODE_ENV === 'test' ? testDb : prodDb;
 
 const router = express.Router();
 
+// Apply userIdMiddleware to all routes
+router.use(userIdMiddleware);
+
 // Get metrics from daily_summary table
-router.get('/:userId/metrics', (req: Request<{ userId: string }>, res: Response) => {
-    const { userId } = req.params;
+router.get('/metrics', (req: Request, res: Response) => {
+    const userId = (req as any).userId;
     const { startDate, endDate, metrics } = req.query;
 
     if (!startDate || !endDate || !metrics) {

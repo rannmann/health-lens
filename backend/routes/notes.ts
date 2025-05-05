@@ -1,13 +1,17 @@
 import express, { Request, Response } from 'express';
 import db from '../config/database';
+import { userIdMiddleware } from '../middleware/auth';
 
 const router = express.Router();
+
+// Apply userIdMiddleware to all routes
+router.use(userIdMiddleware);
 
 // Add a new note
 router.post('/', async (req: Request, res: Response) => {
     try {
         const { timestamp, title, content } = req.body;
-        const userId = 'default_user';
+        const userId = (req as any).userId;
 
         db.prepare(
             'INSERT INTO general_note (user_id, timestamp, title, content) VALUES (?, ?, ?, ?)'
@@ -23,7 +27,7 @@ router.post('/', async (req: Request, res: Response) => {
 // Get all notes for a user
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const userId = 'default_user';
+        const userId = (req as any).userId;
         const notes = db.prepare(
             'SELECT * FROM general_note WHERE user_id = ? ORDER BY timestamp DESC'
         ).all(userId);
@@ -38,7 +42,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.put('/:timestamp', async (req: Request, res: Response) => {
     try {
         const { title, content } = req.body;
-        const userId = 'default_user';
+        const userId = (req as any).userId;
         const timestamp = req.params.timestamp;
 
         db.prepare(
@@ -55,7 +59,7 @@ router.put('/:timestamp', async (req: Request, res: Response) => {
 // Delete a note
 router.delete('/:timestamp', async (req: Request, res: Response) => {
     try {
-        const userId = 'default_user';
+        const userId = (req as any).userId;
         const timestamp = req.params.timestamp;
 
         db.prepare(

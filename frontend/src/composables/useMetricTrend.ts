@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { useUserStore } from '../stores/user';
+import api from '../api/axios';
 
 export interface ChartDataPoint {
   x: number;
@@ -61,15 +62,13 @@ export function useMetricTrend(
   async function fetchTrend() {
     if (!userStore.userId) return;
     try {
-      const url = `/api/health/${userStore.userId}/metrics`;
-      const params = new URLSearchParams({
+      const params = {
         startDate: startDate.value,
         endDate: endDate.value,
         metrics: metric
-      });
-      const response = await fetch(`${url}?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch ' + metric);
-      const { data } = await response.json();
+      };
+      const response = await api.get('/health/metrics', { params });
+      const { data } = response.data;
       if (!data || !Array.isArray(data) || data.length === 0) {
         trendSeries.value = [{ name: label, data: [] }];
         return;

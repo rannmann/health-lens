@@ -1,11 +1,16 @@
 import express, { Request, Response } from 'express';
 import db from '../config/database';
+import { userIdMiddleware } from '../middleware/auth';
 
 const router = express.Router();
+
+// Apply userIdMiddleware to all routes
+router.use(userIdMiddleware);
 
 // Add a symptom event
 router.post('/', async (req: Request, res: Response) => {
     const { timestamp, symptom, severity, notes } = req.body;
+    const userId = (req as any).userId;
 
     if (!timestamp || !symptom || severity === undefined) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -19,7 +24,7 @@ router.post('/', async (req: Request, res: Response) => {
         `);
 
         stmt.run(
-            'default_user', // In a real app, you'd use the actual user ID
+            userId, // Use the actual user ID
             timestamp,
             symptom,
             severity,
@@ -36,6 +41,7 @@ router.post('/', async (req: Request, res: Response) => {
 // Get symptom events for a date range
 router.get('/', async (req: Request, res: Response) => {
     const { startDate, endDate } = req.query;
+    const userId = (req as any).userId;
 
     try {
         const stmt = db.prepare(`
@@ -45,7 +51,7 @@ router.get('/', async (req: Request, res: Response) => {
             ORDER BY timestamp DESC
         `);
 
-        const events = stmt.all('default_user', startDate, endDate);
+        const events = stmt.all(userId, startDate, endDate);
         res.json(events);
     } catch (error) {
         console.error('Symptom events error:', error);
@@ -57,6 +63,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     const { timestamp, symptom, severity, notes } = req.body;
+    const userId = (req as any).userId;
 
     try {
         const stmt = db.prepare(`
@@ -74,7 +81,7 @@ router.put('/:id', async (req: Request<{ id: string }>, res: Response) => {
             severity,
             notes || null,
             id,
-            'default_user'
+            userId
         );
 
         if (result.changes === 0) {
@@ -91,6 +98,7 @@ router.put('/:id', async (req: Request<{ id: string }>, res: Response) => {
 // Delete a symptom event
 router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
+    const userId = (req as any).userId;
 
     try {
         const stmt = db.prepare(`
@@ -98,7 +106,7 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
             WHERE rowid = ? AND user_id = ?
         `);
 
-        const result = stmt.run(id, 'default_user');
+        const result = stmt.run(id, userId);
 
         if (result.changes === 0) {
             return res.status(404).json({ error: 'Symptom event not found' });
@@ -113,10 +121,12 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
 
 // List all symptoms (active/inactive, user and default)
 router.get('/list', async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
+
     try {
         const symptoms = db.prepare(`
             SELECT * FROM symptom WHERE user_id = ? OR user_id IS NULL ORDER BY active DESC, name ASC
-        `).all('default_user');
+        `).all(userId);
         res.json(symptoms);
     } catch (error) {
         console.error('Error fetching symptoms:', error);
@@ -127,12 +137,13 @@ router.get('/list', async (req: Request, res: Response) => {
 // Add a new symptom to the user's list
 router.post('/add', async (req: Request, res: Response) => {
     const { name } = req.body;
+    const userId = (req as any).userId;
     if (!name) return res.status(400).json({ error: 'Name required' });
     try {
         const stmt = db.prepare(`
             INSERT INTO symptom (user_id, name, active) VALUES (?, ?, 1)
         `);
-        stmt.run('default_user', name);
+        stmt.run(userId, name);
         res.json({ success: true });
     } catch (error) {
         if ((error as any).code === 'SQLITE_CONSTRAINT') {
@@ -146,8 +157,9 @@ router.post('/add', async (req: Request, res: Response) => {
 // Activate a symptom
 router.post('/:id/activate', async (req: Request, res: Response) => {
     const { id } = req.params;
+    const userId = (req as any).userId;
     try {
-        db.prepare(`UPDATE symptom SET active = 1, deactivated_at = NULL WHERE id = ? AND user_id = ?`).run(id, 'default_user');
+        db.prepare(`UPDATE symptom SET active = 1, deactivated_at = NULL WHERE id = ? AND user_id = ?`).run(id, userId);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: (error as Error).message || 'Failed to activate symptom' });
@@ -157,8 +169,9 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
 // Deactivate a symptom
 router.post('/:id/deactivate', async (req: Request, res: Response) => {
     const { id } = req.params;
+    const userId = (req as any).userId;
     try {
-        db.prepare(`UPDATE symptom SET active = 0, deactivated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`).run(id, 'default_user');
+        db.prepare(`UPDATE symptom SET active = 0, deactivated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`).run(id, userId);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: (error as Error).message || 'Failed to deactivate symptom' });
@@ -169,9 +182,10 @@ router.post('/:id/deactivate', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name } = req.body;
+    const userId = (req as any).userId;
     if (!name) return res.status(400).json({ error: 'Name required' });
     try {
-        db.prepare(`UPDATE symptom SET name = ? WHERE id = ? AND user_id = ?`).run(name, id, 'default_user');
+        db.prepare(`UPDATE symptom SET name = ? WHERE id = ? AND user_id = ?`).run(name, id, userId);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: (error as Error).message || 'Failed to update symptom' });
@@ -181,6 +195,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 // Add a symptom event (log occurrence)
 router.post('/event', async (req: Request, res: Response) => {
     const { timestamp, symptom_id, severity, notes } = req.body;
+    const userId = (req as any).userId;
     if (!timestamp || !symptom_id || severity === undefined) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -189,7 +204,7 @@ router.post('/event', async (req: Request, res: Response) => {
             INSERT INTO symptom_event (
                 user_id, timestamp, symptom_id, severity, notes
             ) VALUES (?, ?, ?, ?, ?)
-        `).run('default_user', timestamp, symptom_id, severity, notes || null);
+        `).run(userId, timestamp, symptom_id, severity, notes || null);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: (error as Error).message || 'Failed to add symptom event' });
@@ -199,12 +214,13 @@ router.post('/event', async (req: Request, res: Response) => {
 // Get symptom events (optionally filter by date range or symptom)
 router.get('/event', async (req: Request, res: Response) => {
     const { startDate, endDate, symptom_id } = req.query;
+    const userId = (req as any).userId;
     let query = `
         SELECT se.*, s.name as symptom_name FROM symptom_event se
         JOIN symptom s ON se.symptom_id = s.id
         WHERE se.user_id = ?
     `;
-    const params: any[] = ['default_user'];
+    const params: any[] = [userId];
     if (startDate && endDate) {
         query += ' AND se.timestamp BETWEEN ? AND ?';
         params.push(startDate, endDate);
@@ -226,12 +242,13 @@ router.get('/event', async (req: Request, res: Response) => {
 router.put('/event/:id', async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     const { timestamp, symptom_id, severity, notes } = req.body;
+    const userId = (req as any).userId;
     try {
         const result = db.prepare(`
             UPDATE symptom_event
             SET timestamp = ?, symptom_id = ?, severity = ?, notes = ?
             WHERE rowid = ? AND user_id = ?
-        `).run(timestamp, symptom_id, severity, notes || null, id, 'default_user');
+        `).run(timestamp, symptom_id, severity, notes || null, id, userId);
         if (result.changes === 0) {
             return res.status(404).json({ error: 'Symptom event not found' });
         }
@@ -244,11 +261,12 @@ router.put('/event/:id', async (req: Request<{ id: string }>, res: Response) => 
 // Delete a symptom event
 router.delete('/event/:id', async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
+    const userId = (req as any).userId;
     try {
         const result = db.prepare(`
             DELETE FROM symptom_event
             WHERE rowid = ? AND user_id = ?
-        `).run(id, 'default_user');
+        `).run(id, userId);
         if (result.changes === 0) {
             return res.status(404).json({ error: 'Symptom event not found' });
         }
