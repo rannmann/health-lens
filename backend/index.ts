@@ -6,7 +6,7 @@ import { medicationsRouter } from './routes/medications';
 import { awairRouter } from './routes/awair';
 import { weatherRouter } from './routes/weather';
 import { healthRouter } from './routes/health';
-import notesRouter from './routes/notes';
+import { notesRouter } from './routes/notes';
 import { symptomRouter } from './routes/symptom';
 import userRouter from './routes/user';
 

@@ -73,4 +73,4 @@ router.delete('/:timestamp', async (req: Request, res: Response) => {
     }
 });
 
-export default router; 
+export const notesRouter = router; 

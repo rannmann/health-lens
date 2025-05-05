@@ -127,7 +127,7 @@ const editingNote = ref<Note | null>(null);
 
 const fetchNotes = async () => {
   try {
-    const response = await api.get('/api/notes');
+    const response = await api.get('/notes');
     notes.value = response.data;
   } catch (error) {
     console.error('Error fetching notes:', error);
@@ -138,7 +138,7 @@ const addNote = async () => {
   if (!newNote.value.title || !newNote.value.content) return;
   
   try {
-    await api.post('/api/notes', newNote.value);
+    await api.post('/notes', newNote.value);
     newNote.value = {
       title: '',
       content: '',
@@ -158,7 +158,7 @@ const saveEdit = async () => {
   if (!editingNote.value) return;
   
   try {
-    await api.put(`/api/notes/${editingNote.value.timestamp}`, editingNote.value);
+    await api.put(`/notes/${editingNote.value.timestamp}`, editingNote.value);
     editingNote.value = null;
     await fetchNotes();
   } catch (error) {
@@ -174,7 +174,7 @@ const deleteNote = async (timestamp: string) => {
   if (!confirm('Are you sure you want to delete this note?')) return;
   
   try {
-    await api.delete(`/api/notes/${timestamp}`);
+    await api.delete(`/notes/${timestamp}`);
     await fetchNotes();
   } catch (error) {
     console.error('Error deleting note:', error);
