@@ -207,46 +207,6 @@ const showSymptoms = ref(false)
 const showAllChanges = ref(false)
 const showFullScreenChart = ref(false)
 
-// Trend chart options and series (not extracted yet)
-const sleepTrendOptions = ref({
-  ...{
-    chart: {
-      toolbar: {
-        show: true,
-        tools: {
-          download: true,
-          selection: true,
-          zoom: true,
-          zoomin: true,
-          zoomout: true,
-          pan: true,
-          reset: true
-        }
-      }
-    },
-    xaxis: {
-      type: 'datetime'
-    },
-    stroke: {
-      curve: 'smooth'
-    },
-    markers: {
-      size: 4
-    }
-  },
-  colors: ['#775DD0', '#00E396', '#FEB019'],
-  title: {
-    text: 'Sleep Stages (hours)'
-  },
-  plotOptions: {
-    bar: {
-      horizontal: false,
-      columnWidth: '55%',
-      endingShape: 'rounded'
-    }
-  }
-})
-
 // Wake Minutes trend composable
 const { trendOptions: wakeTrendOptions, trendSeries: wakeTrendSeries, fetchTrend: fetchWakeTrend } = useMetricTrend('wake_minutes', 'Wake Minutes', '#FFB347', startDate, endDate)
 
