@@ -47,10 +47,6 @@
           </template>
           <div class="medication-details">
             <p class="medication-detail">
-              <span class="medication-detail__label">Prescription:</span>
-              <span class="medication-detail__value">{{ medication.isPrescription ? 'Yes' : 'No' }}</span>
-            </p>
-            <p class="medication-detail">
               <span class="medication-detail__label">Current Dose:</span>
               <span class="medication-detail__value">
                 <template v-if="getCurrentDose(medication)">
@@ -68,16 +64,17 @@
                 </template>
               </span>
             </p>
-            <p v-if="getCurrentDose(medication) && getCurrentDose(medication)?.notes" class="medication-detail">
-              <span class="medication-detail__label">Dose Notes:</span>
-              <span class="medication-detail__value">{{ getCurrentDose(medication)?.notes }}</span>
-            </p>
-            <p v-if="medication.notes" class="medication-detail">
-              <span class="medication-detail__label">Medication Notes:</span>
-              <span class="medication-detail__value">{{ medication.notes }}</span>
-            </p>
             <div v-if="isExpanded(medication.id)" class="dose-history">
-              <h4>Dose History</h4>
+              <p v-if="getCurrentDose(medication) && getCurrentDose(medication)?.notes" class="medication-detail">
+                <span class="medication-detail__label">Dose Notes:</span>
+                <span class="medication-detail__value">{{ getCurrentDose(medication)?.notes }}</span>
+              </p>
+              <p v-if="medication.notes" class="medication-detail">
+                <span class="medication-detail__label">Medication Notes:</span>
+                <span class="medication-detail__value">{{ medication.notes }}</span>
+              </p>
+
+              <h4 style="margin-top: 1rem;">Dose History</h4>
               <div v-for="dose in medication.doses" :key="dose.id" class="dose-history__item">
                 <div>
                   <span class="medication-detail__label">Dose:</span>
@@ -96,6 +93,7 @@
                   <span class="medication-detail__label">Notes:</span>
                   <span class="medication-detail__value">{{ dose.notes }}</span>
                 </div>
+                <hr>
               </div>
               <button @click="openAddDoseModal(medication)" class="button button--secondary button--small">
                 <PlusIcon class="icon" /> Add Dose
