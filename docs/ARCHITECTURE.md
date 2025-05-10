@@ -32,6 +32,7 @@ HealthLens is built as a local-first application with a Node.js backend and Vue.
 - Pinia for state management
 - Vue Router for navigation
 - ApexCharts for data visualization
+- Tailwind CSS for layout, scaffolding, and utility classes
 
 #### Project Structure
 ```
@@ -79,12 +80,13 @@ Core UI Components:
   - Flexible scheduling patterns
   - Time and day selection
   - Custom interval support
+- `BaseModal.vue`: Modal/dialog component built on Headless UI's Dialog for accessibility and robust focus management
 
 Planned/Needed:
 - Reusable chart components
 - Form input components
 - Loading and error states
-- Data entry modals
+- Data entry modals (should use Headless UI Dialog for accessibility and design system integration)
 - Metric selection components
 
 #### Design System
@@ -95,6 +97,8 @@ The application uses a comprehensive design system implemented through CSS custo
 - Component-specific tokens
 - Consistent interactive states
 - Accessibility considerations
+- Tailwind CSS is used for layout, responsive design, and utility classes. Custom tokens are used for color, spacing, and typography.
+- **Modal/dialog components use Headless UI's Dialog for accessibility and are styled with design tokens**
 
 ### 2. Backend (Node.js + Express)
 
