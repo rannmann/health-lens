@@ -224,4 +224,43 @@ describe('Medications API', () => {
       .send({ name: 'IncompleteMed' });
     expect(res.status).toBe(400);
   });
+
+  it('should mark the previous dose as finished when a new dose is added', async () => {
+    // Create medication with initial dose
+    const createRes = await request(app)
+      .post('/api/medications')
+      .set('x-user-id', TEST_USER_ID)
+      .send({
+        name: 'TestMed',
+        isPrescription: true,
+        startDate: '2024-06-01',
+        notes: 'General note',
+        initialDose: {
+          dose: { amount: 5, unit: 'mg', route: 'oral' },
+          frequency: { type: 'daily', timesOfDay: [{ hour: 8, minute: 0 }] },
+          startDate: '2024-06-01',
+          notes: 'Initial dose note'
+        }
+      });
+    const medicationId = createRes.body.id;
+    // Add a new dose
+    const newDoseStart = '2024-06-10';
+    const res = await request(app)
+      .post(`/api/medications/${medicationId}/doses`)
+      .set('x-user-id', TEST_USER_ID)
+      .send({
+        dose: { amount: 10, unit: 'mg', route: 'oral' },
+        frequency: { type: 'daily', timesOfDay: [{ hour: 20, minute: 0 }] },
+        startDate: newDoseStart,
+        notes: 'Second dose note'
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.length).toBe(2);
+    // The first dose should have endDate set to newDoseStart
+    const firstDose = res.body[0];
+    expect(firstDose.endDate).toBe(newDoseStart);
+    // The second dose should have no endDate
+    const secondDose = res.body[1];
+    expect(secondDose.endDate).toBeNull();
+  });
 }); 

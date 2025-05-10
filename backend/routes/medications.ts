@@ -149,6 +149,13 @@ router.post('/:id/doses', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   try {
+    // Mark the previous active dose as finished
+    db.prepare(`
+      UPDATE medication_doses
+      SET endDate = ?
+      WHERE medication_id = ? AND (endDate IS NULL OR endDate = '')
+    `).run(startDate, id);
+
     db.prepare(`
       INSERT INTO medication_doses (medication_id, dose, frequency, startDate, endDate, notes)
       VALUES (?, ?, ?, ?, ?, ?)
