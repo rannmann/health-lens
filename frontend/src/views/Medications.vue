@@ -148,7 +148,16 @@ const handleMedicationSave = async (payload: any) => {
   try {
     if (addDoseMedication.value) {
       // Add a new dose to an existing medication
-      await api.post(`/medications/${addDoseMedication.value.id}/doses`, payload);
+      // Only send the required fields for dose addition
+      const { dose, frequency, startDate, endDate, notes } = payload.initialDose || payload;
+      console.log('Dose payload:', { dose, frequency, startDate, endDate, notes }); // Debug
+      await api.post(`/medications/${addDoseMedication.value.id}/doses`, {
+        dose,
+        frequency,
+        startDate,
+        endDate,
+        notes
+      });
     } else if (editMedicationData.value) {
       // Update medication info
       await api.put(`/medications/${editMedicationData.value.id}`, payload);
