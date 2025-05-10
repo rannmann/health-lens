@@ -1,10 +1,6 @@
 import express, { Request, Response } from 'express';
-import prodDb from '../config/database';
-import testDb from '../config/database.test';
+import db from '../config/database';
 import { userIdMiddleware } from '../middleware/auth';
-
-// Use test database if in test environment
-const db = process.env.NODE_ENV === 'test' ? testDb : prodDb;
 
 const router = express.Router();
 

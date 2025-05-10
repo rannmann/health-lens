@@ -42,6 +42,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ error: 'Something broke!' });
 });
 
-app.listen(port, () => {
-  console.log(`Backend server running at http://localhost:${port}`);
-}); 
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Backend server running at http://localhost:${port}`);
+  });
+}
+
+export default app; 

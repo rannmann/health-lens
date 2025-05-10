@@ -137,7 +137,11 @@ export class DbSeeder {
     `).all() as TableRow[];
 
     tables.forEach(({ name }) => {
-      testDb.prepare(`DELETE FROM ${name}`).run();
+      try {
+        testDb.prepare(`DELETE FROM ${name}`).run();
+      } catch (err) {
+        // Ignore errors for missing tables
+      }
     });
   }
 
@@ -274,66 +278,9 @@ export class DbSeeder {
    * Create database tables directly
    */
   private static createTables() {
-    // Create users table
-    testDb.prepare(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login TEXT
-      )
-    `).run();
-
-    // Create daily_summary table
-    testDb.prepare(`
-      CREATE TABLE IF NOT EXISTS daily_summary (
-        user_id TEXT NOT NULL,
-        date TEXT NOT NULL,
-        resting_hr INTEGER,
-        steps INTEGER,
-        hrv_rmssd REAL,
-        spo2_avg REAL,
-        breathing_rate REAL,
-        skin_temp_delta REAL,
-        total_sleep INTEGER,
-        deep_sleep INTEGER,
-        light_sleep INTEGER,
-        rem_sleep INTEGER,
-        wake_minutes INTEGER,
-        azm_total INTEGER,
-        azm_fatburn INTEGER,
-        azm_cardio INTEGER,
-        azm_peak INTEGER,
-        PRIMARY KEY(user_id, date),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
-    `).run();
-
-    // Create symptom table
-    testDb.prepare(`
-      CREATE TABLE IF NOT EXISTS symptom (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT,
-        name TEXT NOT NULL,
-        active INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        deactivated_at DATETIME,
-        UNIQUE(user_id, name),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
-    `).run();
-
-    // Create symptom_event table
-    testDb.prepare(`
-      CREATE TABLE IF NOT EXISTS symptom_event (
-        user_id TEXT,
-        timestamp TEXT,
-        symptom_id INTEGER,
-        severity INTEGER,
-        notes TEXT,
-        PRIMARY KEY(user_id, timestamp, symptom_id),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (symptom_id) REFERENCES symptom(id) ON DELETE CASCADE
-      )
-    `).run();
+    // Load schema from schema.sql
+    const schemaPath = path.join(__dirname, '../../config/schema.sql');
+    const schemaSQL = fs.readFileSync(schemaPath, 'utf-8');
+    testDb.exec(schemaSQL);
   }
 } 
