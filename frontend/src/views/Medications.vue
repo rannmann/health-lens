@@ -228,17 +228,22 @@ const formatSchedule = (schedule: FrequencySchedule | undefined) => {
     : '';
   switch (schedule.type) {
     case 'daily':
-      return `Daily at ${times}`;
+      // If no times, show 'Daily' or 'Daily (flexible timing)'
+      return times ? `Daily at ${times}` : 'Daily flexible timing';
     case 'weekly':
       const days = Array.isArray(schedule.daysOfWeek)
         ? schedule.daysOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')
         : '';
-      return `${days} at ${times}`;
+      return days && times ? `${days} at ${times}` : days ? days : 'Weekly';
     case 'monthly':
       const monthDays = Array.isArray(schedule.daysOfMonth)
         ? schedule.daysOfMonth.join(', ')
         : '';
-      return `Monthly on day(s) ${monthDays} at ${times}`;
+      return monthDays && times
+        ? `Monthly on day(s) ${monthDays} at ${times}`
+        : monthDays
+        ? `Monthly on day(s) ${monthDays}`
+        : 'Monthly';
     default:
       return schedule.customPattern || 'Custom schedule';
   }
