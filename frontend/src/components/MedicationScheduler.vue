@@ -576,13 +576,21 @@ const isValid = computed(() => {
 
 // Save the medication schedule
 const save = () => {
-  const medicationSchedule = {
-    medication: medication.value,
-    dose: dose.value,
-    schedule: schedule.value
+  const payload = {
+    name: medication.value.name,
+    isPrescription: medication.value.isPrescription,
+    startDate: medication.value.startDate,
+    endDate: medication.value.endDate || null,
+    notes: medication.value.notes || null,
+    initialDose: {
+      dose: dose.value,
+      frequency: schedule.value,
+      startDate: medication.value.startDate, // or a separate field if you support it
+      endDate: medication.value.endDate || null,
+      notes: doseNotes.value || null
+    }
   };
-  
-  emit('save', medicationSchedule);
+  emit('save', payload);
 };
 
 const isWeeklySchedule = computed(() => schedule.value.type === 'weekly');
