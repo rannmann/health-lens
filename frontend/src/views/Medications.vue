@@ -4,6 +4,7 @@
     
     <div class="medications__actions">
       <button @click="openAddModal" class="button button--success">
+        <PlusIcon class="icon" />
         Add New Medication
       </button>
     </div>
@@ -32,11 +33,11 @@
           class="medication-card"
         >
           <template #actions>
-            <button @click="openEditModal(medication)" class="button button--icon button--secondary">
-              Edit
+            <button @click="openEditModal(medication)" class="button button--icon button--secondary" :aria-label="`Edit ${medication.name}`">
+              <PencilSquareIcon class="icon" />
             </button>
-            <button @click="deleteMedication(medication.id)" class="button button--icon button--error">
-              Delete
+            <button @click="deleteMedication(medication.id)" class="button button--icon button--error" :aria-label="`Delete ${medication.name}`">
+              <TrashIcon class="icon" />
             </button>
           </template>
           <div class="medication-details">
@@ -77,7 +78,9 @@
                   <span class="medication-detail__value">{{ dose.notes }}</span>
                 </div>
               </div>
-              <button @click="openAddDoseModal(medication)" class="button button--secondary button--small">Add Dose</button>
+              <button @click="openAddDoseModal(medication)" class="button button--secondary button--small">
+                <PlusIcon class="icon" /> Add Dose
+              </button>
             </div>
           </div>
         </BaseCard>
@@ -92,6 +95,7 @@ import { useRouter } from 'vue-router';
 import BaseCard from '../components/BaseCard.vue';
 import MedicationScheduler from '../components/MedicationScheduler.vue';
 import BaseModal from '../components/BaseModal.vue';
+import { PencilSquareIcon, TrashIcon, PlusIcon } from '@heroicons/vue/24/outline';
 import type { 
   Medication, 
   MedicationDose, 
@@ -299,5 +303,16 @@ onMounted(() => {
   min-height: 0;
   margin-top: 2vh;
   margin-bottom: 2vh;
+}
+
+.icon {
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: middle;
+  margin-right: 0.25em;
+}
+
+.button--icon .icon {
+  margin-right: 0;
 }
 </style> 
