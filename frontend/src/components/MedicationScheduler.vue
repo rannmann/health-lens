@@ -38,6 +38,45 @@
           <option value="inhaled">Inhaled</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Prescription</label>
+        <input 
+          v-model="medication.isPrescription" 
+          type="checkbox"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input 
+          v-model="medication.startDate" 
+          type="date"
+          class="input"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date</label>
+        <input 
+          v-model="medication.endDate" 
+          type="date"
+          class="input"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label">General Notes</label>
+        <textarea 
+          v-model="medication.notes" 
+          placeholder="Enter general notes"
+          class="input"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dose Notes</label>
+        <textarea 
+          v-model="doseNotes" 
+          placeholder="Enter dose notes"
+          class="input"
+        ></textarea>
+      </div>
     </div>
 
     <!-- Step 2: Frequency Pattern -->
@@ -224,24 +263,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, defineProps, defineEmits } from 'vue';
 import BaseButton from './BaseButton.vue';
-import type { MedicationDose, FrequencySchedule, TimeOfDay, IntervalUnit, ScheduleType } from '../types/medication';
+import type { Medication, MedicationDose, Dose, FrequencySchedule, TimeOfDay, IntervalUnit, ScheduleType } from '../types/medication';
+
+const props = defineProps<{
+  medication?: Medication | null;
+  mode?: 'add' | 'edit' | 'addDose';
+}>();
+
+const emit = defineEmits(['save', 'cancel']);
 
 const currentStep = ref(1);
 const showCustomTimeModal = ref(false);
 const showCustomIntervalModal = ref(false);
 
+// State for medication fields
 const medication = ref({
   name: '',
+  isPrescription: true,
+  startDate: new Date().toISOString().slice(0, 10),
+  endDate: '',
   notes: ''
 });
 
-const dose = ref({
+// State for dose fields
+const dose = ref<Dose>({
   amount: 0,
   unit: 'mg',
   route: 'oral'
 });
+const doseNotes = ref('');
 
 const schedule = ref<FrequencySchedule>({
   type: 'daily' as ScheduleType,
@@ -300,6 +352,66 @@ const customInterval = ref({
   value: 1,
   unit: 'days' as IntervalUnit
 });
+
+// Watch for prop changes to pre-fill fields
+watch(() => props.medication, (med) => {
+  if (med) {
+    medication.value.name = med.name;
+    medication.value.isPrescription = med.isPrescription;
+    medication.value.startDate = med.startDate;
+    medication.value.endDate = med.endDate || '';
+    medication.value.notes = med.notes || '';
+    // If editing a dose, pre-fill dose and schedule from the latest dose
+    if (props.mode === 'addDose' && med.doses.length > 0) {
+      const lastDose = med.doses[med.doses.length - 1];
+      dose.value.amount = lastDose.dose.amount;
+      dose.value.unit = lastDose.dose.unit;
+      dose.value.route = lastDose.dose.route;
+      schedule.value.type = lastDose.frequency.type;
+      schedule.value.timesOfDay = [...(lastDose.frequency.timesOfDay || [])];
+      schedule.value.daysOfWeek = [...(lastDose.frequency.daysOfWeek || [])];
+      schedule.value.daysOfMonth = [...(lastDose.frequency.daysOfMonth || [])];
+      schedule.value.customPattern = lastDose.frequency.customPattern;
+      schedule.value.isFlexible = lastDose.frequency.isFlexible;
+      schedule.value.intervalValue = lastDose.frequency.intervalValue;
+      schedule.value.intervalUnit = lastDose.frequency.intervalUnit;
+      doseNotes.value = '';
+    } else if (props.mode === 'edit' && med.doses.length > 0) {
+      // For edit medication, don't pre-fill dose fields
+      dose.value.amount = 0;
+      dose.value.unit = 'mg';
+      dose.value.route = 'oral';
+      schedule.value.type = 'daily';
+      schedule.value.timesOfDay = [];
+      schedule.value.daysOfWeek = [];
+      schedule.value.daysOfMonth = [];
+      schedule.value.customPattern = undefined;
+      schedule.value.isFlexible = undefined;
+      schedule.value.intervalValue = undefined;
+      schedule.value.intervalUnit = undefined;
+      doseNotes.value = '';
+    }
+  } else {
+    // Reset for add mode
+    medication.value.name = '';
+    medication.value.isPrescription = true;
+    medication.value.startDate = new Date().toISOString().slice(0, 10);
+    medication.value.endDate = '';
+    medication.value.notes = '';
+    dose.value.amount = 0;
+    dose.value.unit = 'mg';
+    dose.value.route = 'oral';
+    schedule.value.type = 'daily';
+    schedule.value.timesOfDay = [];
+    schedule.value.daysOfWeek = [];
+    schedule.value.daysOfMonth = [];
+    schedule.value.customPattern = undefined;
+    schedule.value.isFlexible = undefined;
+    schedule.value.intervalValue = undefined;
+    schedule.value.intervalUnit = undefined;
+    doseNotes.value = '';
+  }
+}, { immediate: true });
 
 // Methods for managing schedule
 const applyPattern = (pattern: any) => {
@@ -472,8 +584,6 @@ const save = () => {
   
   emit('save', medicationSchedule);
 };
-
-const emit = defineEmits(['save']);
 
 const isWeeklySchedule = computed(() => schedule.value.type === 'weekly');
 </script>
