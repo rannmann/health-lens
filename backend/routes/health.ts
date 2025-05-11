@@ -1,10 +1,6 @@
 import express, { Request, Response } from 'express';
-import prodDb from '../config/database';
-import testDb from '../config/database.test';
+import db from '../config/database';
 import { userIdMiddleware } from '../middleware/auth';
-
-// Use test database if in test environment
-const db = process.env.NODE_ENV === 'test' ? testDb : prodDb;
 
 const router = express.Router();
 
@@ -35,7 +31,6 @@ router.get('/metrics', (req: Request, res: Response) => {
         const requestedMetrics = metricsList.filter(m => validMetrics.has(m));
 
         if (requestedMetrics.length === 0) {
-            console.log('No valid metrics found in:', metricsList);
             return res.status(400).json({ error: 'No valid metrics requested' });
         }
 
@@ -60,9 +55,6 @@ router.get('/metrics', (req: Request, res: Response) => {
 
 // Add a test endpoint to verify the router is working
 router.get('/test', (req: Request, res: Response) => {
-    console.log('Health router test endpoint hit');
-    console.log('Query params:', req.query);
-    console.log('Headers:', req.headers);
     res.json({ 
         message: 'Health router is working',
         timestamp: new Date().toISOString(),

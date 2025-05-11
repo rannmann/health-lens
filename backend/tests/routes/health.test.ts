@@ -4,6 +4,7 @@ import express from 'express';
 import { DbSeeder } from '../utils/dbSeeder';
 import { healthRouter } from '../../routes/health';
 import testDb from '../../config/database.test';
+import { setupTestDb } from '../utils/dbTestUtils';
 
 // Create a test app instance
 const app = express();
@@ -15,12 +16,9 @@ const TEST_USER_ID = 'test123';
 const TEST_START_DATE = '2024-01-01';
 const TEST_END_DATE = '2024-01-07';
 
-describe('Health Router', () => {
-  beforeAll(async () => {
-    // Initialize test database with schema and sample data
-    await DbSeeder.initializeTestDb(TEST_USER_ID);
-  });
+setupTestDb(TEST_USER_ID);
 
+describe('Health Router', () => {
   afterAll(async () => {
     // Close database connection
     testDb.close();
@@ -35,16 +33,11 @@ describe('Health Router', () => {
     }
   });
 
-  beforeEach(async () => {
-    // Clean and reseed data before each test
-    DbSeeder.cleanDb();
-    DbSeeder.seedSampleData(TEST_USER_ID);
-  });
-
   describe('GET /api/health/test', () => {
     test('should return 200 and router status', async () => {
-      const response = await request(app).get('/api/health/test');
-      
+      const response = await request(app)
+        .get('/api/health/test')
+        .set('x-user-id', TEST_USER_ID);
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('message', 'Health router is working');
       expect(response.body).toHaveProperty('timestamp');
@@ -52,31 +45,33 @@ describe('Health Router', () => {
     });
   });
 
-  describe('GET /api/health/:userId/metrics', () => {
+  describe('GET /api/health/metrics', () => {
     test('should return 400 if required parameters are missing', async () => {
       const response = await request(app)
-        .get(`/api/health/${TEST_USER_ID}/metrics`);
-      
+        .get('/api/health/metrics')
+        .set('x-user-id', TEST_USER_ID);
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'Start date, end date, and metrics are required');
     });
 
     test('should return 400 if metrics are invalid', async () => {
       const response = await request(app)
-        .get(`/api/health/${TEST_USER_ID}/metrics`)
+        .get('/api/health/metrics')
+        .set('x-user-id', TEST_USER_ID)
         .query({
           startDate: TEST_START_DATE,
           endDate: TEST_END_DATE,
           metrics: 'invalid_metric'
         });
-      
+
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'No valid metrics requested');
     });
 
     test('should return data for valid metrics', async () => {
       const response = await request(app)
-        .get(`/api/health/${TEST_USER_ID}/metrics`)
+        .get('/api/health/metrics')
+        .set('x-user-id', TEST_USER_ID)
         .query({
           startDate: TEST_START_DATE,
           endDate: TEST_END_DATE,
@@ -86,8 +81,6 @@ describe('Health Router', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('data');
       expect(Array.isArray(response.body.data)).toBe(true);
-      
-      // Data should match what's in the test database
       const data = response.body.data;
       expect(data.length).toBeGreaterThan(0);
       expect(data[0]).toHaveProperty('date');
@@ -99,16 +92,15 @@ describe('Health Router', () => {
 
     test('should handle non-existent user gracefully', async () => {
       const response = await request(app)
-        .get('/api/health/nonexistent/metrics')
+        .get('/api/health/metrics')
+        .set('x-user-id', 'nonexistent')
         .query({
           startDate: TEST_START_DATE,
           endDate: TEST_END_DATE,
           metrics: 'hrv_rmssd,total_sleep'
         });
-      
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('data');
-      expect(response.body.data).toHaveLength(0);
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error', 'Invalid user ID');
     });
   });
 }); 

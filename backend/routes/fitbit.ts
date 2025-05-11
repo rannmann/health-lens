@@ -76,19 +76,11 @@ router.get('/callback', async (req: Request, res: Response) => {
         const { access_token, refresh_token, expires_in, user_id: fitbit_user_id, scope } = response.data;
         const expires_at = format(addDays(new Date(), expires_in / 86400), "yyyy-MM-dd'T'HH:mm:ss");
 
-        console.log('OAuth callback received:', {
-            fitbit_user_id,
-            expires_at,
-            scope
-        });
-
         // Create a new user with a UUID
         const userId = require('crypto').randomUUID();
-        console.log('Created new user with ID:', userId);
         
         // First create the user
         const userResult = db.prepare('INSERT INTO users (id) VALUES (?)').run(userId);
-        console.log('User creation result:', userResult);
         
         // Then create the Fitbit connection
         const connectionResult = db.prepare(`
@@ -96,11 +88,9 @@ router.get('/callback', async (req: Request, res: Response) => {
                 user_id, fitbit_user_id, access_token, refresh_token, expires_at, scope
             ) VALUES (?, ?, ?, ?, ?, ?)
         `).run(userId, fitbit_user_id, access_token, refresh_token, expires_at, scope);
-        console.log('Fitbit connection creation result:', connectionResult);
 
         // Verify the connection was created
         const verifyConnection = db.prepare('SELECT * FROM fitbit_connections WHERE user_id = ?').get(userId);
-        console.log('Verification of created connection:', verifyConnection);
 
         // Return both IDs so frontend can store them
         res.json({ 

@@ -3,6 +3,10 @@
 @import './theme/layout.css';
 @import './transitions.css';
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Reset & Base Styles */
 *, *::before, *::after {
   box-sizing: border-box;

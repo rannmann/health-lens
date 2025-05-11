@@ -1,7 +1,5 @@
 import express, { Request, Response } from 'express';
 import db from '../config/database';
-import { format, parseISO } from 'date-fns';
-import type { MedicationSchedule } from '../../frontend/src/types/medication';
 import { userIdMiddleware } from '../middleware/auth';
 
 const router = express.Router();
@@ -9,206 +7,213 @@ const router = express.Router();
 // Apply userIdMiddleware to all routes
 router.use(userIdMiddleware);
 
-// Get all medications for a user within a date range
-router.get('/', async (req: Request, res: Response) => {
-    const userId = (req as any).userId;
-    const { startDate, endDate } = req.query;
+// Helper: fetch dose history for a medication
+function getDoseHistory(medicationId: number) {
+  const doses: any[] = db.prepare(`
+    SELECT * FROM medication_doses WHERE medication_id = ? ORDER BY startDate ASC
+  `).all(medicationId);
+  return doses.map((dose: any) => ({
+    id: dose.id,
+    dose: JSON.parse(dose.dose),
+    frequency: JSON.parse(dose.frequency),
+    startDate: dose.startDate,
+    endDate: dose.endDate,
+    notes: dose.notes,
+    created_at: dose.created_at,
+    updated_at: dose.updated_at
+  }));
+}
 
-    try {
-        const medications = db.prepare(`
-            SELECT * FROM medication_event 
-            WHERE user_id = ? 
-            AND timestamp BETWEEN ? AND ?
-            ORDER BY timestamp DESC
-        `).all(userId, startDate, endDate);
-
-        res.json(medications);
-    } catch (error) {
-        console.error('Error fetching medications:', error);
-        res.status(500).json({ error: 'Failed to fetch medications' });
-    }
-});
-
-// Add a new medication event
-router.post('/', async (req: Request, res: Response) => {
-    const userId = (req as any).userId;
-    const { name, action, dose, notes, timestamp } = req.body;
-
-    try {
-        const formattedTimestamp = timestamp || format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
-
-        db.prepare(`
-            INSERT INTO medication_event (
-                user_id, timestamp, name, action, dose, notes
-            ) VALUES (?, ?, ?, ?, ?, ?)
-        `).run(userId, formattedTimestamp, name, action, dose, notes);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error adding medication:', error);
-        res.status(500).json({ error: 'Failed to add medication' });
-    }
-});
-
-// Update a medication event
-router.put('/:timestamp/:name', async (req: Request, res: Response) => {
-    const userId = (req as any).userId;
-    const { timestamp, name } = req.params;
-    const { action, dose, notes } = req.body;
-
-    try {
-        db.prepare(`
-            UPDATE medication_event 
-            SET action = ?, dose = ?, notes = ?
-            WHERE user_id = ? AND timestamp = ? AND name = ?
-        `).run(action, dose, notes, userId, timestamp, name);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error updating medication:', error);
-        res.status(500).json({ error: 'Failed to update medication' });
-    }
-});
-
-// Delete a medication event
-router.delete('/:timestamp/:name', async (req: Request, res: Response) => {
-    const userId = (req as any).userId;
-    const { timestamp, name } = req.params;
-
-    try {
-        db.prepare(`
-            DELETE FROM medication_event 
-            WHERE user_id = ? AND timestamp = ? AND name = ?
-        `).run(userId, timestamp, name);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting medication:', error);
-        res.status(500).json({ error: 'Failed to delete medication' });
-    }
-});
-
-// Get all medications
-router.get('/all', async (req, res) => {
+// GET /api/medications - List all medications with dose history
+router.get('/', (req: Request, res: Response) => {
   const userId = (req as any).userId;
   try {
-    const medications = await db.all(`
-      SELECT 
-        m.id,
-        m.name,
-        m.notes,
-        m.dose_amount as "dose.amount",
-        m.dose_unit as "dose.unit",
-        m.dose_route as "dose.route",
-        m.schedule_type as "schedule.type",
-        m.schedule_times as "schedule.timesOfDay",
-        m.schedule_days as "schedule.daysOfWeek",
-        m.schedule_month_days as "schedule.daysOfMonth",
-        m.schedule_custom_pattern as "schedule.customPattern",
-        m.schedule_is_flexible as "schedule.isFlexible",
-        m.schedule_interval_value as "schedule.intervalValue",
-        m.schedule_interval_unit as "schedule.intervalUnit"
-      FROM medications m
-      WHERE user_id = ?
-      ORDER BY m.name
-    `, [userId]);
-
-    // Parse JSON fields
-    const parsedMedications = medications.map(med => ({
+    const meds: any[] = db.prepare(`
+      SELECT * FROM medications WHERE user_id = ? ORDER BY name
+    `).all(userId);
+    const result = meds.map((med: any) => ({
       id: med.id,
       name: med.name,
+      isPrescription: !!med.isPrescription,
+      startDate: med.startDate,
+      endDate: med.endDate,
       notes: med.notes,
-      dose: {
-        amount: med['dose.amount'],
-        unit: med['dose.unit'],
-        route: med['dose.route']
-      },
-      schedule: {
-        type: med['schedule.type'],
-        timesOfDay: JSON.parse(med['schedule.timesOfDay'] || '[]'),
-        daysOfWeek: JSON.parse(med['schedule.daysOfWeek'] || '[]'),
-        daysOfMonth: JSON.parse(med['schedule.daysOfMonth'] || '[]'),
-        customPattern: med['schedule.customPattern'],
-        isFlexible: med['schedule.isFlexible'],
-        intervalValue: med['schedule.intervalValue'],
-        intervalUnit: med['schedule.intervalUnit']
-      }
+      created_at: med.created_at,
+      updated_at: med.updated_at,
+      doses: getDoseHistory(med.id)
     }));
-
-    res.json(parsedMedications);
+    res.json(result);
   } catch (error) {
     console.error('Error fetching medications:', error);
     res.status(500).json({ error: 'Failed to fetch medications' });
   }
 });
 
-// Add new medication
-router.post('/all', async (req, res) => {
+// POST /api/medications - Create new medication (with initial dose)
+router.post('/', (req: Request, res: Response) => {
   const userId = (req as any).userId;
+  const { name, isPrescription, startDate, endDate, notes, initialDose } = req.body;
+  if (!name || !initialDose || !initialDose.dose || !initialDose.frequency || !startDate) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
   try {
-    const medicationSchedule: MedicationSchedule = req.body;
-    const { medication, dose, schedule } = medicationSchedule;
-
-    const result = await db.run(`
-      INSERT INTO medications (
-        user_id,
-        name,
-        notes,
-        dose_amount,
-        dose_unit,
-        dose_route,
-        schedule_type,
-        schedule_times,
-        schedule_days,
-        schedule_month_days,
-        schedule_custom_pattern,
-        schedule_is_flexible,
-        schedule_interval_value,
-        schedule_interval_unit
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      userId,
-      medication.name,
-      medication.notes,
-      dose.amount,
-      dose.unit,
-      dose.route,
-      schedule.type,
-      JSON.stringify(schedule.timesOfDay),
-      JSON.stringify(schedule.daysOfWeek),
-      JSON.stringify(schedule.daysOfMonth),
-      schedule.customPattern,
-      schedule.isFlexible,
-      schedule.intervalValue,
-      schedule.intervalUnit
-    ]);
-
-    const newMedication = {
-      id: result.lastID,
-      ...medication,
-      dose,
-      schedule
-    };
-
-    res.status(201).json(newMedication);
+    const medResult = db.prepare(`
+      INSERT INTO medications (user_id, name, isPrescription, startDate, endDate, notes)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, name, isPrescription ? 1 : 0, startDate, endDate || null, notes || null);
+    const medicationId = medResult.lastInsertRowid as number;
+    db.prepare(`
+      INSERT INTO medication_doses (medication_id, dose, frequency, startDate, endDate, notes)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      medicationId,
+      JSON.stringify(initialDose.dose),
+      JSON.stringify(initialDose.frequency),
+      initialDose.startDate || startDate,
+      initialDose.endDate || null,
+      initialDose.notes || null
+    );
+    // Return the new medication with dose history
+    const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(medicationId);
+    res.status(201).json({
+      id: (med as any).id,
+      name: (med as any).name,
+      isPrescription: !!(med as any).isPrescription,
+      startDate: (med as any).startDate,
+      endDate: (med as any).endDate,
+      notes: (med as any).notes,
+      created_at: (med as any).created_at,
+      updated_at: (med as any).updated_at,
+      doses: getDoseHistory((med as any).id)
+    });
   } catch (error) {
     console.error('Error adding medication:', error);
     res.status(500).json({ error: 'Failed to add medication' });
   }
 });
 
-// Delete medication
-router.delete('/:id', async (req, res) => {
+// PUT /api/medications/:id - Update general medication info
+router.put('/:id', (req: Request, res: Response) => {
   const userId = (req as any).userId;
+  const { id } = req.params;
+  const { name, isPrescription, startDate, endDate, notes } = req.body;
   try {
-    await db.run('DELETE FROM medications WHERE id = ? AND user_id = ?', [
-      req.params.id,
-      userId
-    ]);
+    const result = db.prepare(`
+      UPDATE medications SET name = ?, isPrescription = ?, startDate = ?, endDate = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND user_id = ?
+    `).run(name, isPrescription ? 1 : 0, startDate, endDate || null, notes || null, id, userId);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Medication not found' });
+    }
+    const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
+    res.json({
+      id: (med as any).id,
+      name: (med as any).name,
+      isPrescription: !!(med as any).isPrescription,
+      startDate: (med as any).startDate,
+      endDate: (med as any).endDate,
+      notes: (med as any).notes,
+      created_at: (med as any).created_at,
+      updated_at: (med as any).updated_at,
+      doses: getDoseHistory((med as any).id)
+    });
+  } catch (error) {
+    console.error('Error updating medication:', error);
+    res.status(500).json({ error: 'Failed to update medication' });
+  }
+});
+
+// DELETE /api/medications/:id - Delete medication and all doses
+router.delete('/:id', (req: Request, res: Response) => {
+  const userId = (req as any).userId;
+  const { id } = req.params;
+  try {
+    // Delete doses first (ON DELETE CASCADE should handle this, but for safety)
+    db.prepare('DELETE FROM medication_doses WHERE medication_id = ?').run(id);
+    const result = db.prepare('DELETE FROM medications WHERE id = ? AND user_id = ?').run(id, userId);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Medication not found' });
+    }
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting medication:', error);
     res.status(500).json({ error: 'Failed to delete medication' });
+  }
+});
+
+// POST /api/medications/:id/doses - Add a new dose/frequency
+router.post('/:id/doses', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { dose, frequency, startDate, endDate, notes } = req.body;
+  if (!dose || !frequency || !startDate) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  try {
+    // Mark the previous active dose as finished
+    db.prepare(`
+      UPDATE medication_doses
+      SET endDate = ?
+      WHERE medication_id = ? AND (endDate IS NULL OR endDate = '')
+    `).run(startDate, id);
+
+    db.prepare(`
+      INSERT INTO medication_doses (medication_id, dose, frequency, startDate, endDate, notes)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      JSON.stringify(dose),
+      JSON.stringify(frequency),
+      startDate,
+      endDate || null,
+      notes || null
+    );
+    // Return updated dose history
+    res.status(201).json(getDoseHistory(Number(id)));
+  } catch (error) {
+    console.error('Error adding dose:', error);
+    res.status(500).json({ error: 'Failed to add dose' });
+  }
+});
+
+// PUT /api/medications/:id/doses/:doseId - Update a dose/frequency or its note
+router.put('/:id/doses/:doseId', (req: Request, res: Response) => {
+  const { id, doseId } = req.params;
+  const { dose, frequency, startDate, endDate, notes } = req.body;
+  try {
+    const result = db.prepare(`
+      UPDATE medication_doses SET dose = ?, frequency = ?, startDate = ?, endDate = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND medication_id = ?
+    `).run(
+      JSON.stringify(dose),
+      JSON.stringify(frequency),
+      startDate,
+      endDate || null,
+      notes || null,
+      doseId,
+      id
+    );
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Dose not found' });
+    }
+    res.json(getDoseHistory(Number(id)));
+  } catch (error) {
+    console.error('Error updating dose:', error);
+    res.status(500).json({ error: 'Failed to update dose' });
+  }
+});
+
+// DELETE /api/medications/:id/doses/:doseId - Remove a dose/frequency
+router.delete('/:id/doses/:doseId', (req: Request, res: Response) => {
+  const { id, doseId } = req.params;
+  try {
+    const result = db.prepare('DELETE FROM medication_doses WHERE id = ? AND medication_id = ?').run(doseId, id);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Dose not found' });
+    }
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting dose:', error);
+    res.status(500).json({ error: 'Failed to delete dose' });
   }
 });
 
