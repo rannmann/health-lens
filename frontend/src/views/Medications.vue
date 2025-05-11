@@ -65,44 +65,59 @@
               </span>
             </p>
             <div v-if="isExpanded(medication.id)" class="dose-history">
-              <p v-if="getCurrentDose(medication) && getCurrentDose(medication)?.notes" class="medication-detail">
-                <span class="medication-detail__label">Dose Notes:</span>
-                <span class="medication-detail__value">{{ getCurrentDose(medication)?.notes }}</span>
-              </p>
-              <p v-if="medication.notes" class="medication-detail">
-                <span class="medication-detail__label">Medication Notes:</span>
-                <span class="medication-detail__value">{{ medication.notes }}</span>
-              </p>
-
               <h4 style="margin-top: 1rem;">Dose History</h4>
-              <div v-for="dose in medication.doses" :key="dose.id" class="dose-history__item">
-                <div>
-                  <span class="medication-detail__label">Dose:</span>
-                  <span class="medication-detail__value">{{ formatDose(dose.dose) }}</span>
-                </div>
-                <div>
-                  <span class="medication-detail__label">Schedule:</span>
-                  <span class="medication-detail__value">{{ formatSchedule(dose.frequency) }}</span>
-                </div>
-                <div>
-                  <span class="medication-detail__label">Start:</span>
-                  <span class="medication-detail__value">{{ dose.startDate }}</span>
-                  <span v-if="dose.endDate"> – {{ dose.endDate }}</span>
-                </div>
-                <div v-if="dose.notes">
-                  <span class="medication-detail__label">Notes:</span>
-                  <span class="medication-detail__value">{{ dose.notes }}</span>
-                </div>
-                <hr>
-              </div>
-              <button @click="openAddDoseModal(medication)" class="button button--secondary button--small">
+              <table class="dose-history-table">
+                <thead>
+                  <tr>
+                    <th>Dose</th>
+                    <th>Dates</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="dose in visibleDoses(medication.doses, medication.id)" :key="dose.id">
+                    <td>{{ formatDose(dose.dose) }}</td>
+                    <td>{{ dose.startDate }}<span v-if="dose.endDate"> – {{ dose.endDate }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button v-if="medication.doses.length > 3 && !showAllHistory[medication.id]" @click="toggleShowAll(medication.id)" class="button button--secondary button--small" style="margin-top: 0.5em;">Show all</button>
+              <button v-if="showAllHistory[medication.id]" @click="toggleShowAll(medication.id)" class="button button--secondary button--small" style="margin-top: 0.5em;">Show less</button>
+              <button @click="openAddDoseModal(medication)" class="button button--secondary button--small" style="margin-top: 0.5em;">
                 <PlusIcon class="icon" /> Add Dose
+              </button>
+              <button @click="openHistoryModal(medication)" class="button button--secondary button--small" style="margin-top: 0.5em;">
+                View Full History
               </button>
             </div>
           </div>
         </BaseCard>
       </div>
     </BaseCard>
+    <BaseModal v-if="modalHistoryMed" @close="closeHistoryModal" width="90vw">
+      <h3>{{ modalHistoryMed.name }} — Full Dose History</h3>
+      <div class="dose-history-table-wrapper">
+        <table class="dose-history-table dose-history-table--modal">
+          <thead>
+            <tr>
+              <th>Dose</th>
+              <th>Schedule</th>
+              <th>Dates</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="dose in [...modalHistoryMed.doses].sort((a, b) => b.startDate.localeCompare(a.startDate))" :key="dose.id">
+              <td>{{ formatDose(dose.dose) }}</td>
+              <td>{{ formatSchedule(dose.frequency) }}</td>
+              <td>{{ dose.startDate }}<span v-if="dose.endDate"> – {{ dose.endDate }}</span></td>
+              <td>
+                <span v-if="dose.notes" @click="showNote(dose.notes)" class="note-icon" title="Show note">📝</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </BaseModal>
   </div>
 </template>
 
@@ -127,9 +142,12 @@ const medications = ref<Medication[]>([]);
 const showModal = ref(false);
 const editMedicationData = ref<Medication | null>(null);
 const addDoseMedication = ref<Medication | null>(null);
+const modalHistoryMed = ref<Medication | null>(null);
 
 // Track which medication cards are expanded
 const expandedMedications = ref<number[]>([]);
+// Track which cards have 'show all' enabled for dose history
+const showAllHistory = ref<{ [medId: number]: boolean }>({});
 
 const fetchMedications = async () => {
   try {
@@ -275,6 +293,29 @@ function toggleExpand(id: number) {
   }
 }
 
+function visibleDoses(doses: any[], medId: number) {
+  // Sort by most recent startDate (descending)
+  const sorted = [...doses].sort((a, b) => b.startDate.localeCompare(a.startDate));
+  if (showAllHistory.value[medId]) return sorted;
+  return sorted.slice(0, 3);
+}
+
+function toggleShowAll(medId: number) {
+  showAllHistory.value[medId] = !showAllHistory.value[medId];
+}
+
+function showNote(note: string) {
+  // Placeholder for future modal/tooltip
+  alert(note);
+}
+
+function openHistoryModal(med: Medication) {
+  modalHistoryMed.value = med;
+}
+function closeHistoryModal() {
+  modalHistoryMed.value = null;
+}
+
 onMounted(() => {
   fetchMedications();
 });
@@ -403,5 +444,42 @@ onMounted(() => {
 
 .button--icon .icon {
   margin-right: 0;
+}
+
+.dose-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5em;
+  font-size: 0.97em;
+}
+.dose-history-table th, .dose-history-table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.25em 0.5em;
+  text-align: left;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dose-history-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.98em;
+}
+.note-icon {
+  cursor: pointer;
+  color: #2563eb;
+  font-size: 1.1em;
+}
+
+.dose-history-table-wrapper {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+.dose-history-table--modal {
+  min-width: 600px;
+  width: 100%;
+  border-collapse: collapse;
 }
 </style>
