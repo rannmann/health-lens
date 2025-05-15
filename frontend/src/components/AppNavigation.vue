@@ -4,6 +4,7 @@ const navItems = [
   { path: '/medications', label: 'Medications' },
   { path: '/symptoms', label: 'Symptoms' },
   { path: '/notes', label: 'Notes' },
+  { path: '/timeline', label: 'Timeline' },
   { path: '/settings', label: 'Settings' }
 ];
 </script>
