@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { ExclamationTriangleIcon, HomeIcon, FaceFrownIcon, DocumentTextIcon } from '@heroicons/vue/24/solid';
 
-// Demo categories
+// Demo categories with Heroicons
 const categories = [
-  { id: 1, name: 'Illness', icon: '🦠', color: '#E57373' },
-  { id: 2, name: 'Life Event', icon: '🏠', color: '#64B5F6' },
-  { id: 3, name: 'Symptom', icon: '🤒', color: '#FFD54F' },
-  { id: 4, name: 'Note', icon: '📝', color: '#A1887F' }
+  { id: 1, name: 'Illness', icon: ExclamationTriangleIcon, color: '#E57373' },
+  { id: 2, name: 'Life Event', icon: HomeIcon, color: '#64B5F6' },
+  { id: 3, name: 'Symptom', icon: FaceFrownIcon, color: '#FFD54F' },
+  { id: 4, name: 'Note', icon: DocumentTextIcon, color: '#A1887F' }
 ];
 
 // Tag color mapping
@@ -104,14 +105,22 @@ function getCategory(catId: number) {
   <div class="timeline-view">
     <h1>Medical History Timeline</h1>
     <div class="timeline-legend">
-      <span v-for="cat in categories" :key="cat.id" class="legend-item">
-        <span class="legend-icon" :style="{ color: cat.color }">{{ cat.icon }}</span>
-        {{ cat.name }}
-      </span>
-      <span v-for="(color, tag) in tagColors" :key="tag" class="legend-item">
-        <span class="legend-tag" :style="{ backgroundColor: color }"></span>
-        {{ tag.charAt(0).toUpperCase() + tag.slice(1) }}
-      </span>
+      <div class="legend-row">
+        <span class="legend-title">Categories:</span>
+        <span v-for="cat in categories" :key="cat.id" class="legend-item">
+          <span class="legend-icon-bg">
+            <component :is="cat.icon" class="legend-icon-svg" :style="{ color: cat.color }" />
+          </span>
+          <span class="legend-label">{{ cat.name }}</span>
+        </span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-title">Tags:</span>
+        <span v-for="(color, tag) in tagColors" :key="tag" class="legend-item">
+          <span class="legend-tag" :style="{ backgroundColor: color }"></span>
+          <span class="legend-label">{{ tag.charAt(0).toUpperCase() + tag.slice(1) }}</span>
+        </span>
+      </div>
     </div>
     <div class="timeline">
       <div v-for="group in groupedEvents" :key="group.year" class="timeline-year">
@@ -122,12 +131,11 @@ function getCategory(catId: number) {
               class="event-badge"
               :style="{
                 borderColor: getCategory(event.categoryId).color,
-                backgroundColor: event.tag ? tagColors[event.tag] : getCategory(event.categoryId).color,
-                color: '#fff'
+                backgroundColor: getCategory(event.categoryId).color
               }"
               :aria-label="getCategory(event.categoryId).name"
             >
-              {{ getCategory(event.categoryId).icon }}
+              <component :is="getCategory(event.categoryId).icon" class="event-icon-svg" />
             </span>
             <div class="event-content">
               <div class="event-title">{{ event.title }}</div>
@@ -149,26 +157,58 @@ function getCategory(catId: number) {
 }
 .timeline-legend {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  flex-direction: column;
+  gap: 0.3em;
+  margin-bottom: 1.2em;
+  font-size: 0.98em;
+}
+.legend-row {
+  display: flex;
   align-items: center;
+  gap: 1.2em;
+  margin-bottom: 0.2em;
+}
+.legend-title {
+  font-weight: 500;
+  margin-right: 0.7em;
+  font-size: 0.97em;
 }
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
+  gap: 0.3em;
+  font-size: 0.97em;
 }
-.legend-icon {
-  font-size: 1.3rem;
+.legend-color-swatch {
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  display: inline-block;
+}
+.legend-icon-bg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  height: 1.2em;
+  background: #f3f3f3;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+}
+.legend-icon-svg {
+  width: 0.9em;
+  height: 0.9em;
 }
 .legend-tag {
   display: inline-block;
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.1em;
+  height: 1.1em;
   border-radius: 0.3em;
-  margin-right: 0.3em;
+  margin-right: 0.2em;
+}
+.legend-label {
+  font-size: 0.97em;
 }
 .timeline {
   border-left: 3px solid #eee;
@@ -209,6 +249,11 @@ function getCategory(catId: number) {
   font-size: 1.5em;
   margin-right: 1em;
   transition: background 0.2s, border 0.2s;
+}
+.event-icon-svg {
+  width: 1.5em;
+  height: 1.5em;
+  color: #fff;
 }
 .event-content {
   flex: 1;
