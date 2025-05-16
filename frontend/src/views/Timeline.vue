@@ -124,24 +124,19 @@ function getCategory(catId: number) {
     </div>
     <div class="timeline">
       <div v-for="group in groupedEvents" :key="group.year" class="timeline-year">
-        <div class="year-header">{{ group.year }}</div>
+        <div class="year-header">
+          {{ group.year }}
+          <span class="year-count">({{ group.events.length }} events)</span>
+        </div>
         <div class="year-events">
-          <div v-for="event in group.events" :key="event.id" class="timeline-event">
-            <span
-              class="event-badge"
-              :style="{
-                borderColor: getCategory(event.categoryId).color,
-                backgroundColor: getCategory(event.categoryId).color
-              }"
-              :aria-label="getCategory(event.categoryId).name"
-            >
-              <component :is="getCategory(event.categoryId).icon" class="event-icon-svg" />
-            </span>
-            <div class="event-content">
-              <div class="event-title">{{ event.title }}</div>
-              <div class="event-description" v-if="event.description">{{ event.description }}</div>
-              <div class="event-tag" v-if="event.tag" :style="{ backgroundColor: tagColors[event.tag] }">{{ event.tag }}</div>
+          <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
+            <div class="event-row">
+              <component :is="getCategory(event.categoryId).icon" class="event-inline-icon" :style="{ color: getCategory(event.categoryId).color }" />
+              <span class="event-title">{{ event.title }}</span>
+              <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">{{ event.tag }}</span>
             </div>
+            <div class="event-description-condensed" v-if="event.description">{{ event.description }}</div>
+            <div v-if="idx < group.events.length - 1" class="event-divider"></div>
           </div>
         </div>
       </div>
@@ -179,13 +174,6 @@ function getCategory(catId: number) {
   gap: 0.3em;
   font-size: 0.97em;
 }
-.legend-color-swatch {
-  width: 1em;
-  height: 1em;
-  border-radius: 50%;
-  border: 1px solid #ccc;
-  display: inline-block;
-}
 .legend-icon-bg {
   display: flex;
   align-items: center;
@@ -215,65 +203,65 @@ function getCategory(catId: number) {
   padding-left: 1.5rem;
 }
 .timeline-year {
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 .year-header {
-  font-size: 1.3rem;
-  font-weight: bold;
-  margin-bottom: 0.7rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
   color: var(--primary-600, #1976d2);
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+.year-count {
+  font-size: 0.95em;
+  color: #888;
+  font-weight: 400;
 }
 .year-events {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 0;
 }
-.timeline-event {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding-left: 0;
-  background: #fafbfc;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-  position: relative;
+.timeline-event-condensed {
+  padding: 0.2em 0 0.2em 0;
 }
-.event-badge {
+.event-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 2.5em;
-  height: 2.5em;
-  border: 3px solid;
-  border-radius: 50%;
-  font-size: 1.5em;
-  margin-right: 1em;
-  transition: background 0.2s, border 0.2s;
+  gap: 0.5em;
+  font-size: 1em;
 }
-.event-icon-svg {
-  width: 1.5em;
-  height: 1.5em;
-  color: #fff;
-}
-.event-content {
-  flex: 1;
+.event-inline-icon {
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: 0.2em;
+  vertical-align: middle;
 }
 .event-title {
-  font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 0.2em;
+  font-weight: 500;
+  font-size: 1em;
+  margin-right: 0.3em;
 }
-.event-description {
-  font-size: 0.98rem;
-  color: #444;
-  margin-bottom: 0.2em;
-}
-.event-tag {
+.event-tag-inline {
   display: inline-block;
   font-size: 0.85em;
   color: #fff;
   padding: 0.1em 0.7em;
   border-radius: 0.7em;
-  margin-top: 0.2em;
+  margin-left: 0.3em;
+}
+.event-description-condensed {
+  font-size: 0.97em;
+  color: #444;
+  margin-left: 1.5em;
+  margin-bottom: 0.1em;
+}
+.event-divider {
+  height: 1px;
+  background: #ececec;
+  margin: 0.2em 0 0.2em 1.5em;
+  width: calc(100% - 1.5em);
 }
 </style> 
