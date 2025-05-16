@@ -242,21 +242,26 @@ function getCategory(catId: number) {
 .event-title {
   font-weight: 500;
   font-size: 1em;
-  margin-right: 0.3em;
+  margin-right: 0.1em;
 }
 .event-tag-inline {
   display: inline-block;
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: #fff;
-  padding: 0.1em 0.7em;
+  padding: 0.05em 0.4em;
   border-radius: 0.7em;
-  margin-left: 0.3em;
+  margin-left: 0em;
+  vertical-align: middle;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 .event-description-condensed {
-  font-size: 0.97em;
-  color: #444;
-  margin-left: 1.5em;
+  font-size: 0.92em;
+  color: #777;
+  margin-left: 2em;
   margin-bottom: 0.1em;
+  font-weight: 300;
+  line-height: 1.3;
 }
 .event-divider {
   height: 1px;
