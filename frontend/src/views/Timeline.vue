@@ -96,6 +96,23 @@ const groupedEvents = computed(() => {
     .map(([year, evs]) => ({ year: Number(year), events: evs }));
 });
 
+// Year color palette using theme/chart colors
+const yearColors = [
+  '#0070d6', // primary-500
+  '#8b5cf6', // chart-2
+  '#ec4899', // chart-3
+  '#f59e0b', // chart-4
+  '#10b981', // chart-5
+  '#6366f1', // chart-6
+  '#38a2ff', // primary-300
+  '#e6ab02', // yellow (custom, fallback)
+  '#a6761d', // brown (custom, fallback)
+  '#666666', // gray (custom, fallback)
+];
+function getYearColor(year: number) {
+  return yearColors[year % yearColors.length];
+}
+
 function getCategory(catId: number) {
   return categories.find(c => c.id === catId) || { name: 'Unknown', icon: '❓', color: '#ccc' };
 }
@@ -123,8 +140,8 @@ function getCategory(catId: number) {
       </div>
     </div>
     <div class="timeline">
-      <div v-for="group in groupedEvents" :key="group.year" class="timeline-year">
-        <div class="year-header">
+      <div v-for="group in groupedEvents" :key="group.year" class="timeline-year" :style="{ borderLeftColor: getYearColor(group.year) }">
+        <div class="year-header" :style="{ color: getYearColor(group.year) }">
           {{ group.year }}
           <span class="year-count">({{ group.events.length }} events)</span>
         </div>
@@ -199,11 +216,12 @@ function getCategory(catId: number) {
   font-size: 0.97em;
 }
 .timeline {
-  border-left: 3px solid #eee;
   padding-left: 1.5rem;
 }
 .timeline-year {
   margin-bottom: 2rem;
+  border-left: 3px solid #eee;
+  padding-left: 0.5em;
 }
 .year-header {
   font-size: 1.1rem;
