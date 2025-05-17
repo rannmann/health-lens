@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ExclamationTriangleIcon, HomeIcon, FaceFrownIcon, DocumentTextIcon } from '@heroicons/vue/24/solid';
+import { ExclamationTriangleIcon, SparklesIcon, FaceFrownIcon, DocumentTextIcon } from '@heroicons/vue/24/solid';
 
 interface Category {
   id: number;
@@ -22,7 +22,7 @@ interface Event {
 // Demo categories with Heroicons
 const categories: Category[] = [
   { id: 1, name: 'Illness', icon: ExclamationTriangleIcon, color: '#D32F2F' },
-  { id: 2, name: 'Life Event', icon: HomeIcon, color: '#1976D2' },
+  { id: 2, name: 'Life Event', icon: SparklesIcon, color: '#1976D2' },
   { id: 3, name: 'Symptom', icon: FaceFrownIcon, color: '#7B1FA2' },
   { id: 4, name: 'Note', icon: DocumentTextIcon, color: '#455A64' }
 ];
