@@ -131,13 +131,6 @@ function getCategory(catId: number) {
           <span class="legend-label">{{ cat.name }}</span>
         </span>
       </div>
-      <div class="legend-row">
-        <span class="legend-title">Tags:</span>
-        <span v-for="(color, tag) in tagColors" :key="tag" class="legend-item">
-          <span class="legend-tag" :style="{ backgroundColor: color }"></span>
-          <span class="legend-label">{{ tag.charAt(0).toUpperCase() + tag.slice(1) }}</span>
-        </span>
-      </div>
     </div>
     <div class="timeline">
       <div v-for="group in groupedEvents" :key="group.year" class="timeline-year" :style="{ borderLeftColor: getYearColor(group.year) }">
