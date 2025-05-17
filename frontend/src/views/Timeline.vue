@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ExclamationTriangleIcon, SparklesIcon, FaceFrownIcon, DocumentTextIcon } from '@heroicons/vue/24/solid';
+import { 
+  ExclamationTriangleIcon, 
+  SparklesIcon, 
+  FaceFrownIcon, 
+  DocumentTextIcon, 
+  PlusIcon,
+  BeakerIcon,
+  ClipboardDocumentCheckIcon,
+  ScissorsIcon,
+  ShieldCheckIcon,
+  CloudIcon,
+  SwatchIcon,
+  FunnelIcon
+} from '@heroicons/vue/24/solid';
 import BaseCard from '@/components/BaseCard.vue';
+import BaseModal from '@/components/BaseModal.vue';
 
 interface Category {
   id: number;
@@ -18,6 +32,12 @@ interface Event {
   title: string;
   description: string;
   tag: string;
+  sourceType?: 'medication' | 'symptom' | 'note' | 'manual';
+  sourceId?: string;
+  severity?: number;
+  relatedEvents?: number[]; // IDs of related events
+  confidence?: 'high' | 'medium' | 'low'; // Confidence in the event's significance
+  impact?: 'major' | 'moderate' | 'minor'; // Impact on health
 }
 
 // Demo categories with Heroicons
@@ -25,7 +45,13 @@ const categories: Category[] = [
   { id: 1, name: 'Illness', icon: ExclamationTriangleIcon, color: '#D32F2F' },
   { id: 2, name: 'Life Event', icon: SparklesIcon, color: '#1976D2' },
   { id: 3, name: 'Symptom', icon: FaceFrownIcon, color: '#7B1FA2' },
-  { id: 4, name: 'Note', icon: DocumentTextIcon, color: '#455A64' }
+  { id: 4, name: 'Note', icon: DocumentTextIcon, color: '#455A64' },
+  { id: 5, name: 'Medication', icon: SwatchIcon, color: '#388E3C' },
+  { id: 6, name: 'Treatment', icon: BeakerIcon, color: '#F57C00' },
+  { id: 7, name: 'Diagnosis', icon: ClipboardDocumentCheckIcon, color: '#00796B' },
+  { id: 8, name: 'Surgery', icon: ScissorsIcon, color: '#C2185B' },
+  { id: 9, name: 'Vaccination', icon: ShieldCheckIcon, color: '#0097A7' },
+  { id: 10, name: 'Environmental', icon: CloudIcon, color: '#5D4037' }
 ];
 
 // Tag color mapping
@@ -158,14 +184,127 @@ function getYearAgeRange(birthdate: string, year: number): string {
   const ageEnd = getAgeOnDate(birthdate, dec31);
   return ageStart === ageEnd ? `${ageStart}` : `${ageStart}–${ageEnd}`;
 }
+
+// Add new computed property for filtering
+const filteredEvents = computed(() => {
+  return events.value.filter(event => {
+    // Add any filtering logic here
+    return true;
+  });
+});
+
+// Add new method for adding events from other components
+function addEventFromSource(sourceType: 'medication' | 'symptom' | 'note', sourceData: any) {
+  const newEvent: Event = {
+    id: events.value.length + 1,
+    year: new Date(sourceData.timestamp).getFullYear(),
+    month: new Date(sourceData.timestamp).getMonth() + 1,
+    categoryId: getCategoryIdForSource(sourceType),
+    title: sourceData.title || sourceData.name,
+    description: sourceData.description || sourceData.notes || '',
+    tag: sourceData.tag || '',
+    sourceType,
+    sourceId: sourceData.id,
+    severity: sourceData.severity,
+    confidence: 'medium',
+    impact: 'moderate'
+  };
+  events.value.push(newEvent);
+}
+
+function getCategoryIdForSource(sourceType: 'medication' | 'symptom' | 'note'): number {
+  switch (sourceType) {
+    case 'medication': return 5;
+    case 'symptom': return 3;
+    case 'note': return 4;
+    default: return 4;
+  }
+}
+
+const showAddEventModal = ref(false);
+const showFilters = ref(false);
+const activeFilters = ref({
+  category: '',
+  impact: '',
+  search: ''
+});
+
+const newEvent = ref({
+  id: 0,
+  year: 0,
+  month: 0,
+  categoryId: 0,
+  title: '',
+  description: '',
+  tag: '',
+  sourceType: 'manual' as const,
+  sourceId: '',
+  severity: 0,
+  confidence: 'medium' as const,
+  impact: 'moderate' as const,
+  date: new Date().toISOString().split('T')[0]
+});
+
+function addNewEvent() {
+  const [year, month] = newEvent.value.date.split('-');
+  const event: Event = {
+    id: events.value.length + 1,
+    year: parseInt(year),
+    month: parseInt(month),
+    categoryId: newEvent.value.categoryId,
+    title: newEvent.value.title,
+    description: newEvent.value.description,
+    tag: newEvent.value.tag,
+    sourceType: newEvent.value.sourceType,
+    sourceId: newEvent.value.sourceId,
+    severity: newEvent.value.severity,
+    confidence: newEvent.value.confidence,
+    impact: newEvent.value.impact
+  };
+  events.value.push(event);
+  showAddEventModal.value = false;
+}
 </script>
 
 <template>
   <BaseCard class="timeline-container" title="Medical History Timeline" :subtitle="'Last updated: ' + formattedDate">
+    <div class="timeline-controls">
+      <div class="action-section">
+        <button @click="showFilters = !showFilters" class="button button--secondary">
+          <FunnelIcon class="icon" />
+          {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
+        </button>
+        <button @click="showAddEventModal = true" class="button button--primary">
+          <PlusIcon class="icon" />
+          Add Event
+        </button>
+      </div>
+    </div>
+
+    <div v-if="showFilters" class="filter-section">
+      <select v-model="activeFilters.category" class="input">
+        <option value="">All Categories</option>
+        <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+          {{ cat.name }}
+        </option>
+      </select>
+      <select v-model="activeFilters.impact" class="input">
+        <option value="">All Impact Levels</option>
+        <option value="major">Major Impact</option>
+        <option value="moderate">Moderate Impact</option>
+        <option value="minor">Minor Impact</option>
+      </select>
+      <input 
+        v-model="activeFilters.search" 
+        type="text" 
+        class="input" 
+        placeholder="Search events..."
+      >
+    </div>
+
     <div class="timeline-view">
       <div class="timeline-legend">
-        <div class="legend-row">
-          <span class="legend-title">Categories:</span>
+        <div class="legend-grid">
           <span v-for="cat in categories" :key="cat.id" class="legend-item">
             <span class="legend-icon-bg">
               <component :is="cat.icon" class="icon-svg" :style="{ color: cat.color }" />
@@ -187,10 +326,19 @@ function getYearAgeRange(birthdate: string, year: number): string {
                 <component :is="getCategory(event.categoryId).icon" class="icon-svg event"
                   :style="{ color: getCategory(event.categoryId).color }" />
                 <span class="event-title">{{ event.title }}</span>
-                <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">{{
-                  event.tag }}</span>
+                <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">
+                  {{ event.tag }}
+                </span>
+                <span v-if="event.impact" class="event-impact" :class="'impact-' + event.impact">
+                  {{ event.impact }}
+                </span>
               </div>
               <div class="event-description-condensed" v-if="event.description">{{ event.description }}</div>
+              <div v-if="event.sourceType" class="event-source">
+                <span class="source-badge" :class="'source-' + event.sourceType">
+                  {{ event.sourceType }}
+                </span>
+              </div>
               <div v-if="idx < group.events.length - 1" class="event-divider"></div>
             </div>
           </div>
@@ -198,6 +346,54 @@ function getYearAgeRange(birthdate: string, year: number): string {
       </div>
     </div>
   </BaseCard>
+
+  <!-- Add Event Modal -->
+  <BaseModal v-if="showAddEventModal" @close="showAddEventModal = false">
+    <template #title>Add Timeline Event</template>
+    <div class="add-event-form">
+      <div class="form-group">
+        <label>Category</label>
+        <select v-model="newEvent.categoryId" class="input">
+          <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+            {{ cat.name }}
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Title</label>
+        <input v-model="newEvent.title" type="text" class="input" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea v-model="newEvent.description" class="input"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input v-model="newEvent.date" type="date" class="input" />
+      </div>
+      <div class="form-group">
+        <label>Impact</label>
+        <select v-model="newEvent.impact" class="input">
+          <option value="major">Major</option>
+          <option value="moderate">Moderate</option>
+          <option value="minor">Minor</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tag</label>
+        <select v-model="newEvent.tag" class="input">
+          <option value="">None</option>
+          <option value="onset">Onset</option>
+          <option value="diagnosis">Diagnosis</option>
+          <option value="remission">Remission</option>
+        </select>
+      </div>
+    </div>
+    <template #actions>
+      <button @click="addNewEvent" class="button button--primary">Add Event</button>
+      <button @click="showAddEventModal = false" class="button button--secondary">Cancel</button>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
@@ -208,58 +404,51 @@ function getYearAgeRange(birthdate: string, year: number): string {
 }
 
 .timeline-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3em;
   margin-bottom: 1.2em;
-  font-size: 0.98em;
+  font-size: 0.95em;
+  background: var(--surface-secondary, #f8f9fa);
+  padding: 0.8em;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
 }
 
-.legend-row {
-  display: flex;
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5em;
   align-items: center;
-  gap: 1.2em;
-  margin-bottom: 0.2em;
-}
-
-.legend-title {
-  font-weight: 500;
-  margin-right: 0.7em;
-  font-size: 0.97em;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 0.3em;
-  font-size: 0.97em;
+  gap: 0.4em;
+  font-size: 0.95em;
+  white-space: nowrap;
 }
 
 .legend-icon-bg {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.2em;
-  height: 1.2em;
-  background: #f3f3f3;
+  width: 1.1em;
+  height: 1.1em;
+  background: #fff;
   border-radius: 50%;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
+  flex-shrink: 0;
 }
 
 .icon-svg {
-  width: 1em;
-  height: 1em;
+  width: 0.9em;
+  height: 0.9em;
   margin: 0;
   display: block;
 }
 
-.icon-svg.event {
-  width: 1.3em;
-  height: 1.3em;
-}
-
 .legend-label {
-  font-size: 0.97em;
+  font-size: 0.95em;
+  color: var(--text-secondary);
 }
 
 .timeline {
@@ -337,5 +526,190 @@ function getYearAgeRange(birthdate: string, year: number): string {
   background: #ececec;
   margin: 0.2em 0 0.2em 1.5em;
   width: calc(100% - 1.5em);
+}
+
+.timeline-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+
+.filter-section {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--surface-secondary, #f8f9fa);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.action-section {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button--primary {
+  background-color: var(--primary-500, #2563eb);
+  color: white;
+  border-color: var(--primary-600, #1d4ed8);
+}
+
+.button--primary:hover {
+  background-color: var(--primary-600, #1d4ed8);
+}
+
+.button--secondary {
+  background-color: var(--surface-secondary, #f8f9fa);
+  color: var(--text-secondary, #4b5563);
+  border-color: var(--border-medium, #e5e7eb);
+}
+
+.button--secondary:hover {
+  background-color: var(--surface-hover, #f1f5f9);
+  border-color: var(--border-hover, #cbd5e1);
+}
+
+.button .icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  stroke-width: 2;
+}
+
+.event-impact {
+  font-size: 0.75em;
+  padding: 0.1em 0.4em;
+  border-radius: 0.7em;
+  margin-left: 0.5em;
+}
+
+.impact-major {
+  background-color: #D32F2F;
+  color: white;
+}
+
+.impact-moderate {
+  background-color: #F57C00;
+  color: white;
+}
+
+.impact-minor {
+  background-color: #757575;
+  color: white;
+}
+
+.event-source {
+  margin-left: 2em;
+  margin-top: 0.2em;
+}
+
+.source-badge {
+  font-size: 0.75em;
+  padding: 0.1em 0.4em;
+  border-radius: 0.7em;
+  background-color: #E0E0E0;
+  color: #424242;
+}
+
+.source-medication {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+}
+
+.source-symptom {
+  background-color: #F3E5F5;
+  color: #6A1B9A;
+}
+
+.source-note {
+  background-color: #ECEFF1;
+  color: #37474F;
+}
+
+.add-event-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Print styles */
+@media print {
+  .timeline-controls,
+  .filter-section {
+    display: none;
+  }
+
+  .timeline-container {
+    box-shadow: none;
+    border: none;
+  }
+
+  .timeline-view {
+    padding: 0;
+  }
+
+  .timeline-legend {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+
+  .legend-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .timeline-year {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .year-events {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .event-divider {
+    border-color: #000;
+  }
+
+  .event-title,
+  .event-description-condensed {
+    color: #000;
+  }
+
+  .year-header {
+    color: #000;
+  }
+
+  .year-age {
+    color: #666;
+  }
 }
 </style>
