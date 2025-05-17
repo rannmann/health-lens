@@ -136,6 +136,27 @@ function getCategory(catId: number) {
 
 const today = new Date();
 const formattedDate = today.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
+// For demo: hardcoded user birthdate (YYYY-MM-DD)
+const userBirthdate = '1990-07-15';
+
+function getAgeOnDate(birthdate: string, date: Date): number {
+  const birth = new Date(birthdate);
+  let age = date.getFullYear() - birth.getFullYear();
+  const m = date.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && date.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+function getYearAgeRange(birthdate: string, year: number): string {
+  const jan1 = new Date(year, 0, 1);
+  const dec31 = new Date(year, 11, 31);
+  const ageStart = getAgeOnDate(birthdate, jan1);
+  const ageEnd = getAgeOnDate(birthdate, dec31);
+  return ageStart === ageEnd ? `${ageStart}` : `${ageStart}–${ageEnd}`;
+}
 </script>
 
 <template>
@@ -157,7 +178,7 @@ const formattedDate = today.toLocaleDateString(undefined, { year: 'numeric', mon
       <div v-for="group in groupedEvents" :key="group.year" class="timeline-year" :style="{ borderLeftColor: getYearColor(group.year) }">
         <div class="year-header" :style="{ color: getYearColor(group.year) }">
           {{ group.year }}
-          <span class="year-count">({{ group.events.length }} events)</span>
+          <span class="year-age">(Age {{ getYearAgeRange(userBirthdate, group.year) }})</span>
         </div>
         <div class="year-events">
           <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
@@ -245,10 +266,10 @@ const formattedDate = today.toLocaleDateString(undefined, { year: 'numeric', mon
   align-items: center;
   gap: 0.7em;
 }
-.year-count {
-  font-size: 0.95em;
-  color: #888;
-  font-weight: 400;
+.year-age {
+  font-size: 0.87em;
+  color: var(--text-tertiary, #64748b);
+  font-weight: 300;
 }
 .year-events {
   display: flex;
