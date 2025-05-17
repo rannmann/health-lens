@@ -2,8 +2,25 @@
 import { ref, computed } from 'vue';
 import { ExclamationTriangleIcon, HomeIcon, FaceFrownIcon, DocumentTextIcon } from '@heroicons/vue/24/solid';
 
+interface Category {
+  id: number;
+  name: string;
+  icon: any;
+  color: string;
+}
+
+interface Event {
+  id: number;
+  year: number;
+  month?: number;
+  categoryId: number;
+  title: string;
+  description: string;
+  tag: string;
+}
+
 // Demo categories with Heroicons
-const categories = [
+const categories: Category[] = [
   { id: 1, name: 'Illness', icon: ExclamationTriangleIcon, color: '#E57373' },
   { id: 2, name: 'Life Event', icon: HomeIcon, color: '#64B5F6' },
   { id: 3, name: 'Symptom', icon: FaceFrownIcon, color: '#FFD54F' },
@@ -18,7 +35,7 @@ const tagColors: Record<string, string> = {
 };
 
 // Demo events
-const events = ref([
+const events = ref<Event[]>([
   {
     id: 1,
     year: 2020,
@@ -126,7 +143,7 @@ function getCategory(catId: number) {
         <span class="legend-title">Categories:</span>
         <span v-for="cat in categories" :key="cat.id" class="legend-item">
           <span class="legend-icon-bg">
-            <component :is="cat.icon" class="legend-icon-svg" :style="{ color: cat.color }" />
+            <component :is="cat.icon" class="icon-svg" :style="{ color: cat.color }" />
           </span>
           <span class="legend-label">{{ cat.name }}</span>
         </span>
@@ -141,7 +158,7 @@ function getCategory(catId: number) {
         <div class="year-events">
           <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
             <div class="event-row">
-              <component :is="getCategory(event.categoryId).icon" class="event-inline-icon" :style="{ color: getCategory(event.categoryId).color }" />
+              <component :is="getCategory(event.categoryId).icon" class="icon-svg event" :style="{ color: getCategory(event.categoryId).color }" />
               <span class="event-title">{{ event.title }}</span>
               <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">{{ event.tag }}</span>
             </div>
@@ -194,16 +211,15 @@ function getCategory(catId: number) {
   border-radius: 50%;
   border: 1px solid #ccc;
 }
-.legend-icon-svg {
-  width: 0.9em;
-  height: 0.9em;
+.icon-svg {
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  display: block;
 }
-.legend-tag {
-  display: inline-block;
-  width: 1.1em;
-  height: 1.1em;
-  border-radius: 0.3em;
-  margin-right: 0.2em;
+.icon-svg.event {
+  width: 1.3em;
+  height: 1.3em;
 }
 .legend-label {
   font-size: 0.97em;
@@ -243,12 +259,6 @@ function getCategory(catId: number) {
   align-items: center;
   gap: 0.5em;
   font-size: 1em;
-}
-.event-inline-icon {
-  width: 1.1em;
-  height: 1.1em;
-  margin-right: 0.2em;
-  vertical-align: middle;
 }
 .event-title {
   font-weight: 500;
