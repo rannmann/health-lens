@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { ExclamationTriangleIcon, SparklesIcon, FaceFrownIcon, DocumentTextIcon } from '@heroicons/vue/24/solid';
+import BaseCard from '@/components/BaseCard.vue';
 
 interface Category {
   id: number;
@@ -160,40 +161,43 @@ function getYearAgeRange(birthdate: string, year: number): string {
 </script>
 
 <template>
-  <div class="timeline-view">
-    <h1>Medical History Timeline</h1>
-    <div class="timeline-updated">Last updated: {{ formattedDate }}</div>
-    <div class="timeline-legend">
-      <div class="legend-row">
-        <span class="legend-title">Categories:</span>
-        <span v-for="cat in categories" :key="cat.id" class="legend-item">
-          <span class="legend-icon-bg">
-            <component :is="cat.icon" class="icon-svg" :style="{ color: cat.color }" />
+  <BaseCard class="timeline-container" title="Medical History Timeline" :subtitle="'Last updated: ' + formattedDate">
+    <div class="timeline-view">
+      <div class="timeline-legend">
+        <div class="legend-row">
+          <span class="legend-title">Categories:</span>
+          <span v-for="cat in categories" :key="cat.id" class="legend-item">
+            <span class="legend-icon-bg">
+              <component :is="cat.icon" class="icon-svg" :style="{ color: cat.color }" />
+            </span>
+            <span class="legend-label">{{ cat.name }}</span>
           </span>
-          <span class="legend-label">{{ cat.name }}</span>
-        </span>
-      </div>
-    </div>
-    <div class="timeline">
-      <div v-for="group in groupedEvents" :key="group.year" class="timeline-year" :style="{ borderLeftColor: getYearColor(group.year) }">
-        <div class="year-header" :style="{ color: getYearColor(group.year) }">
-          {{ group.year }}
-          <span class="year-age">(Age {{ getYearAgeRange(userBirthdate, group.year) }})</span>
         </div>
-        <div class="year-events">
-          <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
-            <div class="event-row">
-              <component :is="getCategory(event.categoryId).icon" class="icon-svg event" :style="{ color: getCategory(event.categoryId).color }" />
-              <span class="event-title">{{ event.title }}</span>
-              <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">{{ event.tag }}</span>
+      </div>
+      <div class="timeline">
+        <div v-for="group in groupedEvents" :key="group.year" class="timeline-year"
+          :style="{ borderLeftColor: getYearColor(group.year) }">
+          <div class="year-header" :style="{ color: getYearColor(group.year) }">
+            {{ group.year }}
+            <span class="year-age">(Age {{ getYearAgeRange(userBirthdate, group.year) }})</span>
+          </div>
+          <div class="year-events">
+            <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
+              <div class="event-row">
+                <component :is="getCategory(event.categoryId).icon" class="icon-svg event"
+                  :style="{ color: getCategory(event.categoryId).color }" />
+                <span class="event-title">{{ event.title }}</span>
+                <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">{{
+                  event.tag }}</span>
+              </div>
+              <div class="event-description-condensed" v-if="event.description">{{ event.description }}</div>
+              <div v-if="idx < group.events.length - 1" class="event-divider"></div>
             </div>
-            <div class="event-description-condensed" v-if="event.description">{{ event.description }}</div>
-            <div v-if="idx < group.events.length - 1" class="event-divider"></div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>
 
 <style scoped>
@@ -202,6 +206,7 @@ function getYearAgeRange(birthdate: string, year: number): string {
   margin: 0 auto;
   padding: 2rem 1rem;
 }
+
 .timeline-legend {
   display: flex;
   flex-direction: column;
@@ -209,23 +214,27 @@ function getYearAgeRange(birthdate: string, year: number): string {
   margin-bottom: 1.2em;
   font-size: 0.98em;
 }
+
 .legend-row {
   display: flex;
   align-items: center;
   gap: 1.2em;
   margin-bottom: 0.2em;
 }
+
 .legend-title {
   font-weight: 500;
   margin-right: 0.7em;
   font-size: 0.97em;
 }
+
 .legend-item {
   display: flex;
   align-items: center;
   gap: 0.3em;
   font-size: 0.97em;
 }
+
 .legend-icon-bg {
   display: flex;
   align-items: center;
@@ -236,27 +245,33 @@ function getYearAgeRange(birthdate: string, year: number): string {
   border-radius: 50%;
   border: 1px solid #ccc;
 }
+
 .icon-svg {
   width: 1em;
   height: 1em;
   margin: 0;
   display: block;
 }
+
 .icon-svg.event {
   width: 1.3em;
   height: 1.3em;
 }
+
 .legend-label {
   font-size: 0.97em;
 }
+
 .timeline {
   padding-left: 1.5rem;
 }
+
 .timeline-year {
   margin-bottom: 2rem;
   border-left: 3px solid #eee;
   padding-left: 0.5em;
 }
+
 .year-header {
   font-size: 1.1rem;
   font-weight: 600;
@@ -266,30 +281,36 @@ function getYearAgeRange(birthdate: string, year: number): string {
   align-items: center;
   gap: 0.7em;
 }
+
 .year-age {
   font-size: 0.87em;
   color: var(--text-tertiary, #64748b);
   font-weight: 300;
 }
+
 .year-events {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
+
 .timeline-event-condensed {
   padding: 0.2em 0 0.2em 0;
 }
+
 .event-row {
   display: flex;
   align-items: center;
   gap: 0.5em;
   font-size: 1em;
 }
+
 .event-title {
   font-weight: 500;
   font-size: 1em;
   margin-right: 0.1em;
 }
+
 .event-tag-inline {
   display: inline-block;
   font-size: 0.75em;
@@ -301,6 +322,7 @@ function getYearAgeRange(birthdate: string, year: number): string {
   font-weight: 400;
   letter-spacing: 0.01em;
 }
+
 .event-description-condensed {
   font-size: 0.92em;
   color: #777;
@@ -309,21 +331,11 @@ function getYearAgeRange(birthdate: string, year: number): string {
   font-weight: 300;
   line-height: 1.3;
 }
+
 .event-divider {
   height: 1px;
   background: #ececec;
   margin: 0.2em 0 0.2em 1.5em;
   width: calc(100% - 1.5em);
 }
-.timeline-view h1 {
-  font-size: var(--text-3xl, 1.7rem);
-  font-weight: var(--font-bold, 700);
-  margin-bottom: 0.2em;
-  color: var(--text-primary, #1e293b);
-}
-.timeline-updated {
-  font-size: 0.98em;
-  color: var(--text-tertiary, #64748b);
-  margin-bottom: 1.1em;
-}
-</style> 
+</style>
