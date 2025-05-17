@@ -133,11 +133,15 @@ function getYearColor(year: number) {
 function getCategory(catId: number) {
   return categories.find(c => c.id === catId) || { name: 'Unknown', icon: '❓', color: '#ccc' };
 }
+
+const today = new Date();
+const formattedDate = today.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 </script>
 
 <template>
   <div class="timeline-view">
     <h1>Medical History Timeline</h1>
+    <div class="timeline-updated">Last updated: {{ formattedDate }}</div>
     <div class="timeline-legend">
       <div class="legend-row">
         <span class="legend-title">Categories:</span>
@@ -173,7 +177,7 @@ function getCategory(catId: number) {
 
 <style scoped>
 .timeline-view {
-  max-width: 700px;
+  max-width: 90vw;
   margin: 0 auto;
   padding: 2rem 1rem;
 }
@@ -289,5 +293,16 @@ function getCategory(catId: number) {
   background: #ececec;
   margin: 0.2em 0 0.2em 1.5em;
   width: calc(100% - 1.5em);
+}
+.timeline-view h1 {
+  font-size: var(--text-3xl, 1.7rem);
+  font-weight: var(--font-bold, 700);
+  margin-bottom: 0.2em;
+  color: var(--text-primary, #1e293b);
+}
+.timeline-updated {
+  font-size: 0.98em;
+  color: var(--text-tertiary, #64748b);
+  margin-bottom: 1.1em;
 }
 </style> 
