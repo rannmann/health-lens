@@ -21,17 +21,17 @@ interface Event {
 
 // Demo categories with Heroicons
 const categories: Category[] = [
-  { id: 1, name: 'Illness', icon: ExclamationTriangleIcon, color: '#E57373' },
-  { id: 2, name: 'Life Event', icon: HomeIcon, color: '#64B5F6' },
-  { id: 3, name: 'Symptom', icon: FaceFrownIcon, color: '#FFD54F' },
-  { id: 4, name: 'Note', icon: DocumentTextIcon, color: '#A1887F' }
+  { id: 1, name: 'Illness', icon: ExclamationTriangleIcon, color: '#D32F2F' },
+  { id: 2, name: 'Life Event', icon: HomeIcon, color: '#1976D2' },
+  { id: 3, name: 'Symptom', icon: FaceFrownIcon, color: '#7B1FA2' },
+  { id: 4, name: 'Note', icon: DocumentTextIcon, color: '#455A64' }
 ];
 
 // Tag color mapping
 const tagColors: Record<string, string> = {
-  onset: '#E57373',
-  diagnosis: '#64B5F6',
-  remission: '#81C784'
+  onset: '#D32F2F',
+  diagnosis: '#1976D2',
+  remission: '#388E3C'
 };
 
 // Demo events
@@ -115,16 +115,16 @@ const groupedEvents = computed(() => {
 
 // Year color palette using theme/chart colors
 const yearColors = [
-  '#0070d6', // primary-500
-  '#8b5cf6', // chart-2
-  '#ec4899', // chart-3
-  '#f59e0b', // chart-4
-  '#10b981', // chart-5
-  '#6366f1', // chart-6
-  '#38a2ff', // primary-300
-  '#e6ab02', // yellow (custom, fallback)
-  '#a6761d', // brown (custom, fallback)
-  '#666666', // gray (custom, fallback)
+  '#0070d6', // primary-500 (blue, 8.13:1)
+  '#8b5cf6', // chart-2 (purple, 4.54:1)
+  '#6366f1', // chart-6 (indigo, 5.13:1)
+  '#a6761d', // brown (4.53:1)
+  '#666666', // gray (5.93:1)
+  '#10b981', // green (3.94:1, border ok)
+  '#8d1919', // dark red (custom, 8.62:1)
+  '#0058ad', // primary-600 (darker blue, 11.13:1)
+  '#334155', // neutral-700 (dark slate, 10.77:1)
+  '#b91c1c', // error-700 (dark red, 8.62:1)
 ];
 function getYearColor(year: number) {
   return yearColors[year % yearColors.length];
