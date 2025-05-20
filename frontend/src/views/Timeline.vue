@@ -267,133 +267,130 @@ function addNewEvent() {
 </script>
 
 <template>
-  <BaseCard class="timeline-container" title="Medical History Timeline" :subtitle="'Last updated: ' + formattedDate">
-    <div class="timeline-controls">
-      <div class="action-section">
-        <button @click="showFilters = !showFilters" class="button button--secondary">
-          <FunnelIcon class="icon" />
-          {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
-        </button>
-        <button @click="showAddEventModal = true" class="button button--primary">
-          <PlusIcon class="icon" />
-          Add Event
-        </button>
-      </div>
-    </div>
-
-    <div v-if="showFilters" class="filter-section">
-      <select v-model="activeFilters.category" class="input">
-        <option value="">All Categories</option>
-        <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-          {{ cat.name }}
-        </option>
-      </select>
-      <select v-model="activeFilters.impact" class="input">
-        <option value="">All Impact Levels</option>
-        <option value="major">Major Impact</option>
-        <option value="moderate">Moderate Impact</option>
-        <option value="minor">Minor Impact</option>
-      </select>
-      <input 
-        v-model="activeFilters.search" 
-        type="text" 
-        class="input" 
-        placeholder="Search events..."
-      >
-    </div>
-
-    <div class="timeline-view">
-      <div class="timeline-legend">
-        <div class="legend-grid">
-          <span v-for="cat in categories" :key="cat.id" class="legend-item">
-            <span class="legend-icon-bg">
-              <component :is="cat.icon" class="icon-svg" :style="{ color: cat.color }" />
-            </span>
-            <span class="legend-label">{{ cat.name }}</span>
-          </span>
+  <div>
+    <BaseCard class="timeline-container" title="Medical History Timeline" :subtitle="'Last updated: ' + formattedDate">
+      <div class="timeline-controls">
+        <div class="action-section">
+          <button @click="showFilters = !showFilters" class="button button--secondary">
+            <FunnelIcon class="icon" />
+            {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
+          </button>
+          <button @click="showAddEventModal = true" class="button button--primary">
+            <PlusIcon class="icon" />
+            Add Event
+          </button>
         </div>
       </div>
-      <div class="timeline">
-        <div v-for="group in groupedEvents" :key="group.year" class="timeline-year"
-          :style="{ borderLeftColor: getYearColor(group.year) }">
-          <div class="year-header" :style="{ color: getYearColor(group.year) }">
-            {{ group.year }}
-            <span class="year-age">(Age {{ getYearAgeRange(userBirthdate, group.year) }})</span>
-          </div>
-          <div class="year-events">
-            <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
-              <div class="event-row">
-                <component :is="getCategory(event.categoryId).icon" class="icon-svg event"
-                  :style="{ color: getCategory(event.categoryId).color }" />
-                <span class="event-title">{{ event.title }}</span>
-                <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">
-                  {{ event.tag }}
-                </span>
-                <span v-if="event.impact" class="event-impact" :class="'impact-' + event.impact">
-                  {{ event.impact }}
-                </span>
-              </div>
-              <div class="event-description-condensed" v-if="event.description">{{ event.description }}</div>
-              <div v-if="event.sourceType" class="event-source">
-                <span class="source-badge" :class="'source-' + event.sourceType">
-                  {{ event.sourceType }}
-                </span>
-              </div>
-              <div v-if="idx < group.events.length - 1" class="event-divider"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </BaseCard>
 
-  <!-- Add Event Modal -->
-  <BaseModal v-if="showAddEventModal" @close="showAddEventModal = false">
-    <template #title>Add Timeline Event</template>
-    <div class="add-event-form">
-      <div class="form-group">
-        <label>Category</label>
-        <select v-model="newEvent.categoryId" class="input">
+      <div v-if="showFilters" class="filter-section">
+        <select v-model="activeFilters.category" class="input">
+          <option value="">All Categories</option>
           <option v-for="cat in categories" :key="cat.id" :value="cat.id">
             {{ cat.name }}
           </option>
         </select>
-      </div>
-      <div class="form-group">
-        <label>Title</label>
-        <input v-model="newEvent.title" type="text" class="input" />
-      </div>
-      <div class="form-group">
-        <label>Description</label>
-        <textarea v-model="newEvent.description" class="input"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Date</label>
-        <input v-model="newEvent.date" type="date" class="input" />
-      </div>
-      <div class="form-group">
-        <label>Impact</label>
-        <select v-model="newEvent.impact" class="input">
-          <option value="major">Major</option>
-          <option value="moderate">Moderate</option>
-          <option value="minor">Minor</option>
+        <select v-model="activeFilters.impact" class="input">
+          <option value="">All Impact Levels</option>
+          <option value="major">Major Impact</option>
+          <option value="moderate">Moderate Impact</option>
+          <option value="minor">Minor Impact</option>
         </select>
+        <input v-model="activeFilters.search" type="text" class="input" placeholder="Search events...">
       </div>
-      <div class="form-group">
-        <label>Tag</label>
-        <select v-model="newEvent.tag" class="input">
-          <option value="">None</option>
-          <option value="onset">Onset</option>
-          <option value="diagnosis">Diagnosis</option>
-          <option value="remission">Remission</option>
-        </select>
+
+      <div class="timeline-view">
+        <div class="timeline-legend">
+          <div class="legend-grid">
+            <span v-for="cat in categories" :key="cat.id" class="legend-item">
+              <span class="legend-icon-bg">
+                <component :is="cat.icon" class="icon-svg" :style="{ color: cat.color }" />
+              </span>
+              <span class="legend-label">{{ cat.name }}</span>
+            </span>
+          </div>
+        </div>
+        <div class="timeline">
+          <div v-for="group in groupedEvents" :key="group.year" class="timeline-year"
+            :style="{ borderLeftColor: getYearColor(group.year) }">
+            <div class="year-header" :style="{ color: getYearColor(group.year) }">
+              {{ group.year }}
+              <span class="year-age">(Age {{ getYearAgeRange(userBirthdate, group.year) }})</span>
+            </div>
+            <div class="year-events">
+              <div v-for="(event, idx) in group.events" :key="event.id" class="timeline-event-condensed">
+                <div class="event-row">
+                  <component :is="getCategory(event.categoryId).icon" class="icon-svg event"
+                    :style="{ color: getCategory(event.categoryId).color }" />
+                  <span class="event-title">{{ event.title }}</span>
+                  <span v-if="event.tag" class="event-tag-inline" :style="{ backgroundColor: tagColors[event.tag] }">
+                    {{ event.tag }}
+                  </span>
+                  <span v-if="event.impact" class="event-impact" :class="'impact-' + event.impact">
+                    {{ event.impact }}
+                  </span>
+                </div>
+                <div class="event-description-condensed" v-if="event.description">{{ event.description }}</div>
+                <div v-if="event.sourceType" class="event-source">
+                  <span class="source-badge" :class="'source-' + event.sourceType">
+                    {{ event.sourceType }}
+                  </span>
+                </div>
+                <div v-if="idx < group.events.length - 1" class="event-divider"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-    <template #actions>
-      <button @click="addNewEvent" class="button button--primary">Add Event</button>
-      <button @click="showAddEventModal = false" class="button button--secondary">Cancel</button>
-    </template>
-  </BaseModal>
+    </BaseCard>
+
+    <!-- Add Event Modal -->
+    <BaseModal v-if="showAddEventModal" @close="showAddEventModal = false">
+      <template #title>Add Timeline Event</template>
+      <div class="add-event-form">
+        <div class="form-group">
+          <label>Category</label>
+          <select v-model="newEvent.categoryId" class="input">
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.name }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Title</label>
+          <input v-model="newEvent.title" type="text" class="input" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea v-model="newEvent.description" class="input"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input v-model="newEvent.date" type="date" class="input" />
+        </div>
+        <div class="form-group">
+          <label>Impact</label>
+          <select v-model="newEvent.impact" class="input">
+            <option value="major">Major</option>
+            <option value="moderate">Moderate</option>
+            <option value="minor">Minor</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tag</label>
+          <select v-model="newEvent.tag" class="input">
+            <option value="">None</option>
+            <option value="onset">Onset</option>
+            <option value="diagnosis">Diagnosis</option>
+            <option value="remission">Remission</option>
+          </select>
+        </div>
+      </div>
+      <template #actions>
+        <button @click="addNewEvent" class="button button--primary">Add Event</button>
+        <button @click="showAddEventModal = false" class="button button--secondary">Cancel</button>
+      </template>
+    </BaseModal>
+  </div>
 </template>
 
 <style scoped>
