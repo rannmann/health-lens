@@ -187,4 +187,67 @@ CREATE INDEX idx_general_note_user_timestamp ON general_note(user_id, timestamp)
 - Timestamps stored in ISO 8601 format
 - JSON fields used for flexible configuration storage
 - Indexes optimized for time-series queries
-- Schema supports future extensions 
+- Schema supports future extensions
+
+## Medications
+- Table: `medications`
+  - id (PK)
+  - user_id (FK)
+  - name
+  - isPrescription
+  - startDate
+  - endDate
+  - notes
+  - created_at
+  - updated_at
+- Table: `medication_doses`
+  - id (PK)
+  - medication_id (FK)
+  - dose (JSON)
+  - frequency (JSON)
+  - startDate
+  - endDate
+  - notes
+  - created_at
+  - updated_at
+
+## Symptoms
+- Table: `symptom`
+  - id (PK)
+  - user_id (FK)
+  - name
+  - active
+  - created_at
+  - deactivated_at
+- Table: `symptom_event`
+  - id (PK)
+  - user_id (FK)
+  - timestamp
+  - symptom_id (FK)
+  - severity
+  - notes
+
+## Timeline Events
+- Table: `timeline_event`
+  - id (PK)
+  - user_id (FK)
+  - timestamp
+  - type (ENUM: 'medication', 'symptom', 'life_event', 'surgery', etc.)
+  - impact (ENUM: 'major', 'moderate', 'minor')
+  - title
+  - description
+  - medication_id (FK, nullable)
+  - symptom_id (FK, nullable)
+  - tag (e.g., 'onset', 'diagnosis', 'remission', etc.)
+  - orphaned (BOOLEAN, default false)
+  - created_at
+  - updated_at
+
+### Timeline Event Relationships
+- Timeline events reference medications or symptoms for notable changes (e.g., new medication started, symptom onset/remission).
+- If a referenced medication or symptom is deleted, the timeline event is marked as orphaned and flagged for user review.
+- Users can review orphaned events and choose to delete them or remove the reference (making them general events).
+
+## Notes
+- The standalone note system has been removed. Notes now live within timeline events or as part of medication/symptom records.
+- Medications and symptoms remain detailed entities for tracking history and configuration. Timeline events are a summary/annotation layer for major changes and life events. 
