@@ -4,6 +4,7 @@ import Medications from '../views/Medications.vue';
 import Symptoms from '../views/Symptoms.vue';
 import Settings from '../views/Settings.vue';
 import NotesView from '../views/NotesView.vue';
+import Timeline from '../views/Timeline.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +33,11 @@ const router = createRouter({
       path: '/notes',
       name: 'notes',
       component: NotesView
+    },
+    {
+      path: '/timeline',
+      name: 'timeline',
+      component: Timeline
     },
     {
       path: '/auth/fitbit/callback',

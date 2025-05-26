@@ -232,11 +232,6 @@ onMounted(() => {
   fetchWakeTrend();
 })
 
-watch([startDate, endDate], () => {
-  fetchStepsTrend();
-  fetchAzmTrend();
-  fetchWakeTrend();
-})
 </script>
 
 <style scoped>

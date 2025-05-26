@@ -24,82 +24,40 @@
 - [ ] Comprehensive error handling
 - [ ] Loading state management
 
-### Medication Tracking
-- [x] Basic medication interface
-- [ ] Medication change tracking system
-  - [ ] Add/edit medication entries
-  - [ ] Track dosage and frequency changes
-  - [ ] Store medication notes and observations
-- [ ] Medication timeline view
-  - [ ] Chronological view of all medication changes
-  - [ ] Filter by date range
-  - [ ] Search functionality
+### Unified Timeline & Event System
+- [ ] Timeline Event model/table (life events, surgeries, notable medication/symptom changes, etc.)
+- [ ] Timeline CRUD API endpoints
+- [ ] Timeline events reference medications/symptoms where relevant (foreign key/ID)
+- [ ] Timeline frontend integration (fetch, add, edit, delete events)
+- [ ] Filtering and impact-level controls (major, moderate, minor)
+- [ ] Orphaned Timeline Event review: prompt user to review orphaned events (e.g., when a medication/symptom is deleted)
 
-### Symptom Management
-- [x] Basic symptom interface
-- [ ] User-defined symptom configuration
-  - [ ] Add/edit/deactivate symptoms
-  - [ ] Symptom categorization
-  - [ ] Severity scale (1-10)
-- [ ] Symptom tracking interface
-  - [ ] Quick entry form
-  - [ ] Bulk entry for historical data
+### Medications
+- [ ] Medication entity: full detail (name, dose, schedule, start/stop, user notes, etc.)
+- [ ] Medication CRUD API endpoints
+- [ ] Medication trial timeline (Gantt-style) view
+- [ ] Auto-generate Timeline events for new/discontinued medications (not for dose/schedule changes)
+- [ ] Deleting a medication or symptom orphans associated Timeline events for user review
 
-### Basic Visualization
-- [x] Primary time-series graph
-  - [x] Basic metric selection
-  - [x] Date range selection
-  - [x] Medication change annotations
-- [x] Basic data views
-  - [x] Current medications list
-  - [x] Active symptoms list
-  - [x] Recent changes timeline
+### Symptoms
+- [ ] Symptom entity: configuration, severity tracking, history
+- [ ] Symptom CRUD API endpoints
+- [ ] Auto-generate Timeline events for new symptom onset/remission (not for daily severity changes)
+- [ ] Deleting a symptom orphans associated Timeline events for user review
 
-## MVP Phase 2: Enhanced Analytics
+### Daily Check-in
+- [ ] Daily Check-in form (medication changes, symptom status, journal entry)
+- [ ] Only notable changes (as defined above) are promoted to Timeline events
+- [ ] View past check-ins (drill-down from Timeline or separate view)
 
-### Advanced Visualization
-- [ ] Configurable graph overlays
-  - [ ] Multiple metric comparison
-  - [ ] Customizable colors and styles
-  - [ ] Toggle individual elements
-- [ ] Saved view configurations
-  - [ ] Default views
-  - [ ] User-defined views
-  - [ ] Quick view switching
-- [ ] Interactive features
-  - [ ] Zoom/pan controls
-  - [ ] Click-to-view details
-  - [ ] Highlight periods of interest
+### Specialized Views
+- [ ] Medications: detailed history, trial timeline, user notes
+- [ ] Symptoms: configuration, severity trends, history
+- [ ] Timeline: broad, uncluttered, high-level view with filters
 
-### Medication Analysis
-- [ ] Medication history view
-  - [ ] Success/failure grouping
-  - [ ] Historical effectiveness notes
-  - [ ] Duration and dosage summary
-- [ ] Medication impact analysis
-  - [ ] Before/after metric comparison
-  - [ ] Side effect tracking
-  - [ ] Correlation suggestions
-
-### Notes & Events
-- [ ] General note system
-  - [ ] Rich text entry
-  - [ ] Date-based organization
-  - [ ] Searchable content
-- [ ] Event annotations
-  - [ ] Life events
-  - [ ] Medical events
-  - [ ] Custom categories
-
-### Data Export
-- [ ] AI-ready data formatting
-  - [ ] Chronological summaries
-  - [ ] Recent period focus (1-2 months)
-  - [ ] Key event highlighting
-- [ ] Export customization
-  - [ ] Date range selection
-  - [ ] Data type filtering
-  - [ ] Format options
+### Remove/Consolidate
+- Remove "General note system" as a standalone feature (notes now live within Timeline events or medication/symptom notes)
+- Remove "Medication change tracking system" and "Symptom tracking interface" as separate backend features (now part of unified event system)
 
 ## Future Enhancements
 
